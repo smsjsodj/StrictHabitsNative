@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:gravity="center"
+    android:background="@color/red_light"
+    android:padding="24dp">
+
+    <TextView
+        android:id="@+id/lockHabitName"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Привычка"
+        android:textColor="@android:color/white"
+        android:textSize="32sp"
+        android:textStyle="bold"
+        android:layout_marginBottom="20dp" />
+
+    <TextView
+        android:id="@+id/lockHabitTime"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Время"
+        android:textColor="@android:color/white"
+        android:textSize="20sp"
+        android:layout_marginBottom="40dp" />
+
+    <EditText
+        android:id="@+id/lockConfirmPhrase"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Напишите: Я клянусь жопой"
+        android:background="@android:color/white"
+        android:padding="16dp"
+        android:layout_marginBottom="20dp" />
+
+    <Button
+        android:id="@+id/lockUnlockBtn"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="РАЗБЛОКИРОВАТЬ"
+        android:backgroundTint="@android:color/white"
+        android:textColor="@color/red_light" />
+
+    <TextView
+        android:id="@+id/lockTelegramHint"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text=""
+        android:textColor="@android:color/white"
+        android:layout_marginTop="20dp"
+        android:visibility="gone" />
+
+</LinearLayout>
