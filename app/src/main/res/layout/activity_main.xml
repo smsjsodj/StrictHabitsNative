@@ -21,6 +21,14 @@
         android:layout_height="wrap_content"
         android:text="+ Новая привычка"/>
 
+    <Button
+        android:id="@+id/btnRequestOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Разрешить поверх окон"
+        android:layout_marginTop="8dp"
+        android:visibility="gone" />
+
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/habitsRecycler"
         android:layout_width="match_parent"

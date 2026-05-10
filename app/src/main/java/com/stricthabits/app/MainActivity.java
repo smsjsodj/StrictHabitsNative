@@ -51,10 +51,27 @@ public class MainActivity extends AppCompatActivity {
         recyclerView.setAdapter(adapter);
 
         findViewById(R.id.btnAddHabit).setOnClickListener(v -> showAddDialog());
-        findViewById(R.id.btnRequestOverlay).setOnClickListener(v -> requestOverlayPermission());
+        View btnOverlay = findViewById(R.id.btnRequestOverlay);
+        btnOverlay.setOnClickListener(v -> requestOverlayPermission());
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
+            btnOverlay.setVisibility(View.VISIBLE);
             requestOverlayPermission();
+        } else {
+            btnOverlay.setVisibility(View.GONE);
+        }
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        View btnOverlay = findViewById(R.id.btnRequestOverlay);
+        if (btnOverlay != null) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && Settings.canDrawOverlays(this)) {
+                btnOverlay.setVisibility(View.GONE);
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                btnOverlay.setVisibility(View.VISIBLE);
+            }
         }
     }
 
