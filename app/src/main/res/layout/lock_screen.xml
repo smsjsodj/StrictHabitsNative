@@ -4,52 +4,45 @@
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:gravity="center"
-    android:background="@color/red_light"
-    android:padding="24dp">
+    android:background="#D32F2F"
+    android:padding="32dp">
 
     <TextView
-        android:id="@+id/lockHabitName"
+        android:id="@+id/tvHabitName"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Привычка"
-        android:textColor="@android:color/white"
         android:textSize="32sp"
-        android:textStyle="bold"
-        android:layout_marginBottom="20dp" />
+        android:textColor="@android:color/white"
+        android:textStyle="bold"/>
 
     <TextView
-        android:id="@+id/lockHabitTime"
+        android:id="@+id/tvTime"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Время"
+        android:text="12:00"
+        android:textSize="24sp"
         android:textColor="@android:color/white"
-        android:textSize="20sp"
-        android:layout_marginBottom="40dp" />
+        android:layout_marginTop="16dp"
+        android:layout_marginBottom="32dp"/>
 
     <EditText
-        android:id="@+id/lockConfirmPhrase"
+        android:id="@+id/etConfirm"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="Напишите: Я клянусь жопой"
+        android:hint='Напиши "Я клянусь жопой"'
+        android:textColorHint="#CCCCCC"
+        android:textColor="@android:color/white"
         android:background="@android:color/white"
-        android:padding="16dp"
-        android:layout_marginBottom="20dp" />
+        android:padding="12dp"
+        android:layout_marginBottom="16dp"/>
 
     <Button
-        android:id="@+id/lockUnlockBtn"
+        android:id="@+id/btnUnlock"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="РАЗБЛОКИРОВАТЬ"
-        android:backgroundTint="@android:color/white"
-        android:textColor="@color/red_light" />
-
-    <TextView
-        android:id="@+id/lockTelegramHint"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text=""
-        android:textColor="@android:color/white"
-        android:layout_marginTop="20dp"
-        android:visibility="gone" />
+        android:textSize="18sp"
+        android:backgroundTint="#FF9800"/>
 
 </LinearLayout>
