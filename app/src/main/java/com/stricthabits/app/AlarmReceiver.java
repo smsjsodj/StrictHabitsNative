@@ -14,6 +14,14 @@ public class AlarmReceiver extends BroadcastReceiver {
         String habitTime = intent.getStringExtra("habit_time");
         boolean soundEnabled = intent.getBooleanExtra("sound_enabled", true);
 
+        // Проверка: соответствует ли текущее время времени привычки (с запасом 5 мин)
+        if (!isTimeMatch(habitTime)) {
+            // Если время сильно не совпадает, просто перепланируем и выходим
+            Habit h = findHabitByName(context, habitName);
+            if (h != null) HabitScheduler.schedule(context, h);
+            return;
+        }
+
         // Загрузить привычку из SharedPreferences, чтобы получить дни недели
         Habit habit = findHabitByName(context, habitName);
         if (habit != null) {
@@ -54,6 +62,22 @@ public class AlarmReceiver extends BroadcastReceiver {
             }
         } catch (Exception e) { e.printStackTrace(); }
         return null;
+    }
+
+    private boolean isTimeMatch(String habitTime) {
+        try {
+            if (habitTime == null || !habitTime.contains(":")) return false;
+            String[] parts = habitTime.split(":");
+            int h = Integer.parseInt(parts[0]);
+            int m = Integer.parseInt(parts[1]);
+
+            java.util.Calendar now = java.util.Calendar.getInstance();
+            int nowH = now.get(java.util.Calendar.HOUR_OF_DAY);
+            int nowM = now.get(java.util.Calendar.MINUTE);
+
+            int diff = Math.abs((nowH * 60 + nowM) - (h * 60 + m));
+            return diff <= 5; // Разница не более 5 минут
+        } catch (Exception e) { return false; }
     }
 
     private boolean shouldRunToday(Habit habit) {

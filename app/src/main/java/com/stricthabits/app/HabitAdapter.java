@@ -45,8 +45,15 @@ public class HabitAdapter extends RecyclerView.Adapter<HabitAdapter.ViewHolder> 
         Habit h = habits.get(position);
         holder.habitName.setText(h.getName());
         String daysStr = getDaysString(h.getDays());
-        String status = h.isCompletedToday() ? "  ✅ ВЫПОЛНЕНО" : "  ⏳ Ждёт";
-        holder.habitDetails.setText(h.getTime() + "  " + daysStr + status);
+        holder.habitDetails.setText(h.getTime() + "  " + daysStr);
+        
+        if (h.isCompletedToday()) {
+            holder.habitStatus.setText("✅ ВЫПОЛНЕНО");
+            holder.habitStatus.setTextColor(android.graphics.Color.parseColor("#4CAF50"));
+        } else {
+            holder.habitStatus.setText("⏳ ОЖИДАЕТСЯ");
+            holder.habitStatus.setTextColor(android.graphics.Color.parseColor("#FF9800"));
+        }
         holder.checkCompleted.setOnCheckedChangeListener(null);
         holder.checkCompleted.setChecked(h.isCompletedToday());
         holder.checkCompleted.setOnCheckedChangeListener((buttonView, isChecked) -> {
@@ -74,7 +81,7 @@ public class HabitAdapter extends RecyclerView.Adapter<HabitAdapter.ViewHolder> 
 
     static class ViewHolder extends RecyclerView.ViewHolder {
         CheckBox checkCompleted;
-        TextView habitName, habitDetails;
+        TextView habitName, habitDetails, habitStatus;
         Button btnTest, btnDelete;
 
         ViewHolder(@NonNull View itemView) {
@@ -82,6 +89,7 @@ public class HabitAdapter extends RecyclerView.Adapter<HabitAdapter.ViewHolder> 
             checkCompleted = itemView.findViewById(R.id.checkCompleted);
             habitName = itemView.findViewById(R.id.habitName);
             habitDetails = itemView.findViewById(R.id.habitDetails);
+            habitStatus = itemView.findViewById(R.id.habitStatus);
             btnTest = itemView.findViewById(R.id.btnTest);
             btnDelete = itemView.findViewById(R.id.btnDelete);
         }

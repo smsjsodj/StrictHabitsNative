@@ -37,6 +37,7 @@ public class MainActivity extends AppCompatActivity {
 
         prefs = getSharedPreferences("habits", MODE_PRIVATE);
         loadHabits();
+        scheduleAllHabits();
 
         recyclerView = findViewById(R.id.habitsRecycler);
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
@@ -182,6 +183,12 @@ public class MainActivity extends AppCompatActivity {
                 habitList.add(h);
             }
         } catch (Exception e) { e.printStackTrace(); }
+    }
+
+    private void scheduleAllHabits() {
+        for (Habit h : habitList) {
+            HabitScheduler.schedule(this, h);
+        }
     }
 
     private void saveHabits() {
