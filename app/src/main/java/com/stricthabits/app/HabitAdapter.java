@@ -18,6 +18,7 @@ public class HabitAdapter extends RecyclerView.Adapter<HabitAdapter.ViewHolder> 
     public interface OnDeleteListener {
         void onDelete(int position);
     }
+
     public interface OnTestListener {
         void onTest(Habit habit);
     }
@@ -39,7 +40,7 @@ public class HabitAdapter extends RecyclerView.Adapter<HabitAdapter.ViewHolder> 
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
         Habit h = habits.get(position);
         holder.habitName.setText(h.getName());
-        holder.habitDetails.setText(h.getTime() + (h.isTelegramOnly() ? " 🔐 Telegram" : ""));
+        holder.habitDetails.setText(h.getTime() + (h.isTelegramOnly() ? " 🔐" : ""));
         holder.btnTest.setOnClickListener(v -> testListener.onTest(h));
         holder.btnDelete.setOnClickListener(v -> deleteListener.onDelete(position));
     }
@@ -52,6 +53,7 @@ public class HabitAdapter extends RecyclerView.Adapter<HabitAdapter.ViewHolder> 
     static class ViewHolder extends RecyclerView.ViewHolder {
         TextView habitName, habitDetails;
         Button btnTest, btnDelete;
+
         ViewHolder(@NonNull View itemView) {
             super(itemView);
             habitName = itemView.findViewById(R.id.habitName);

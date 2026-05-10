@@ -79,14 +79,12 @@ public class LockService extends Service {
     }
 
     private void startSoundLoop() {
-        // Используем стандартный ToneGenerator с типом тона ALERT (или другие)
-        toneGenerator = new ToneGenerator(ToneGenerator.TONE_CDMA_ALERT_CALL_GUARD, 100); // громкость 100% (max)
-
+        toneGenerator = new ToneGenerator(ToneGenerator.TONE_CDMA_ALERT_CALL_GUARD, 100);
         soundRunnable = new Runnable() {
             @Override
             public void run() {
                 if (!isUnlocked && toneGenerator != null) {
-                    toneGenerator.startTone(ToneGenerator.TONE_CDMA_ALERT_CALL_GUARD, 1000); // длительность 1 секунда
+                    toneGenerator.startTone(ToneGenerator.TONE_CDMA_ALERT_CALL_GUARD, 1000);
                     handler.postDelayed(this, 2000);
                 }
             }
@@ -119,5 +117,7 @@ public class LockService extends Service {
     }
 
     @Override
-    public IBinder onBind(Intent intent) { return null; }
+    public IBinder onBind(Intent intent) {
+        return null;
+    }
 }
