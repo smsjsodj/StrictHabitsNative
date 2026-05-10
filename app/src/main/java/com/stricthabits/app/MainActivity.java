@@ -63,47 +63,48 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void showAddDialog() {
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        View view = getLayoutInflater().inflate(R.layout.dialog_add_habit, null);
-        EditText etName = view.findViewById(R.id.habitName);
-        Button btnTime = view.findViewById(R.id.btnSelectTime);
-        SwitchCompat swTelegram = view.findViewById(R.id.switchTelegram);
-        SwitchCompat swSound = view.findViewById(R.id.switchSound);
+private void showAddDialog() {
+    AlertDialog.Builder builder = new AlertDialog.Builder(this);
+    View view = getLayoutInflater().inflate(R.layout.dialog_add_habit, null);
+    EditText etName = view.findViewById(R.id.habitName);
+    Button btnTime = view.findViewById(R.id.btnSelectTime);
+    SwitchCompat swTelegram = view.findViewById(R.id.switchTelegram);
+    SwitchCompat swSound = view.findViewById(R.id.switchSound);
 
-        int[] hour = {12}, minute = {0};
-        btnTime.setText("12:00");
-        btnTime.setOnClickListener(v -> {
-            MaterialTimePicker picker = new MaterialTimePicker.Builder()
-                    .setTimeFormat(TimeFormat.CLOCK_24H)
-                    .setHour(hour[0])
-                    .setMinute(minute[0])
-                    .build();
-            picker.addOnPositiveButtonClickListener(dialog -> {
-                hour[0] = picker.getHour();
-                minute[0] = picker.getMinute();
-                btnTime.setText(String.format("%02d:%02d", hour[0], minute[0]));
-            });
-            picker.show(getSupportFragmentManager(), "time_picker");
-        });
+    int[] hour = {12};
+    int[] minute = {0};
+    btnTime.setText("12:00");
 
-        builder.setTitle("Новая привычка")
-                .setView(view)
-                .setPositiveButton("Сохранить", (d, w) -> {
-                    String name = etName.getText().toString().trim();
-                    if (name.isEmpty()) {
-                        Toast.makeText(this, "Введите название", Toast.LENGTH_SHORT).show();
-                        return;
-                    }
-                    String time = String.format("%02d:%02d", hour[0], minute[0]);
-                    Habit habit = new Habit(name, time, swTelegram.isChecked(), swSound.isChecked());
-                    habitList.add(habit);
-                    saveHabits();
-                    adapter.notifyItemInserted(habitList.size() - 1);
-                    HabitScheduler.schedule(this, habit);
-                })
-                .show();
-    }
+    // Используем стандартный TimePickerDialog (не Material)
+    btnTime.setOnClickListener(v -> {
+        android.app.TimePickerDialog timePicker = new android.app.TimePickerDialog(
+                this,
+                (view1, hourOfDay, minuteOfHour) -> {
+                    hour[0] = hourOfDay;
+                    minute[0] = minuteOfHour;
+                    btnTime.setText(String.format("%02d:%02d", hour[0], minute[0]));
+                },
+                hour[0], minute[0], true);
+        timePicker.show();
+    });
+
+    builder.setTitle("Новая привычка")
+            .setView(view)
+            .setPositiveButton("Сохранить", (d, w) -> {
+                String name = etName.getText().toString().trim();
+                if (name.isEmpty()) {
+                    Toast.makeText(this, "Введите название", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                String time = String.format("%02d:%02d", hour[0], minute[0]);
+                Habit habit = new Habit(name, time, swTelegram.isChecked(), swSound.isChecked());
+                habitList.add(habit);
+                saveHabits();
+                adapter.notifyItemInserted(habitList.size() - 1);
+                HabitScheduler.schedule(this, habit);
+            })
+            .show();
+}
 
     private void showTelegramDialog() {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
