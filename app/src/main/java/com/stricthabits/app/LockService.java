@@ -17,16 +17,24 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.media.AudioAttributes;
+import android.media.Ringtone;
+import android.media.RingtoneManager;
+import android.net.Uri;
 
 public class LockService extends Service {
     private WindowManager windowManager;
     private View overlayView;
     private Handler handler = new Handler();
     private Runnable soundRunnable;
-    private MediaPlayer mediaPlayer;
+    private Ringtone ringtone;
     private String habitName, habitTime;
     private boolean soundEnabled;
     private boolean isUnlocked = false;
+    private static final String CHANNEL_ID = "HabitLockChannel";
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
@@ -35,9 +43,34 @@ public class LockService extends Service {
             habitTime = intent.getStringExtra("habit_time");
             soundEnabled = intent.getBooleanExtra("sound_enabled", true);
         }
+        
+        createNotificationChannel();
+        startForeground(1, createNotification());
+
         showOverlay();
         if (soundEnabled) startSoundLoop();
         return START_STICKY;
+    }
+
+    private void createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationChannel channel = new NotificationChannel(CHANNEL_ID,
+                    "Habit Reminders", NotificationManager.IMPORTANCE_HIGH);
+            NotificationManager manager = getSystemService(NotificationManager.class);
+            if (manager != null) manager.createNotificationChannel(channel);
+        }
+    }
+
+    private Notification createNotification() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            return new Notification.Builder(this, CHANNEL_ID)
+                    .setContentTitle("Strict Habit")
+                    .setContentText("Пора выполнить: " + habitName)
+                    .setSmallIcon(android.R.drawable.ic_lock_idle_lock)
+                    .build();
+        } else {
+            return new Notification();
+        }
     }
 
     private void showOverlay() {
@@ -94,13 +127,22 @@ public class LockService extends Service {
 
     private void playSound() {
         try {
-            if (mediaPlayer != null) {
-                mediaPlayer.release();
+            if (ringtone != null && ringtone.isPlaying()) return;
+
+            Uri alert = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM);
+            if (alert == null) {
+                alert = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE);
             }
-            mediaPlayer = MediaPlayer.create(this, android.provider.Settings.System.DEFAULT_NOTIFICATION_URI);
-            if (mediaPlayer != null) {
-                mediaPlayer.start();
-                mediaPlayer.setOnCompletionListener(mp -> mp.release());
+            
+            ringtone = RingtoneManager.getRingtone(this, alert);
+            if (ringtone != null) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                    ringtone.setAudioAttributes(new AudioAttributes.Builder()
+                            .setUsage(AudioAttributes.USAGE_ALARM)
+                            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                            .build());
+                }
+                ringtone.play();
             } else {
                 vibrate();
             }
@@ -122,9 +164,8 @@ public class LockService extends Service {
 
     private void stopSoundLoop() {
         if (soundRunnable != null) handler.removeCallbacks(soundRunnable);
-        if (mediaPlayer != null) {
-            mediaPlayer.release();
-            mediaPlayer = null;
+        if (ringtone != null && ringtone.isPlaying()) {
+            ringtone.stop();
         }
     }
 

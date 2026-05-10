@@ -36,11 +36,17 @@ public class HabitScheduler {
             calendar.add(Calendar.DAY_OF_YEAR, 1);
         }
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP,
-                    calendar.getTimeInMillis(), pendingIntent);
-        } else {
-            alarmManager.setExact(AlarmManager.RTC_WAKEUP,
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP,
+                        calendar.getTimeInMillis(), pendingIntent);
+            } else {
+                alarmManager.setExact(AlarmManager.RTC_WAKEUP,
+                        calendar.getTimeInMillis(), pendingIntent);
+            }
+        } catch (SecurityException e) {
+            // Fallback for Android 14+ if permission is not granted
+            alarmManager.set(AlarmManager.RTC_WAKEUP,
                     calendar.getTimeInMillis(), pendingIntent);
         }
     }

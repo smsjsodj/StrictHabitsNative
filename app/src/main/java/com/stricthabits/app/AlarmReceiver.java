@@ -30,9 +30,26 @@ public class AlarmReceiver extends BroadcastReceiver {
     }
 
     private Habit findHabitByName(Context context, String name) {
-        // Упрощённо: загружаем список из SharedPreferences и ищем по имени
-        // Для простоты можно сохранить в статическую переменную, но сделаем быстро
-        return null; // заглушка – на самом деле нужно реализовать
+        try {
+            android.content.SharedPreferences prefs = context.getSharedPreferences("habits", Context.MODE_PRIVATE);
+            String json = prefs.getString("list", "[]");
+            org.json.JSONArray arr = new org.json.JSONArray(json);
+            for (int i = 0; i < arr.length(); i++) {
+                org.json.JSONObject obj = arr.getJSONObject(i);
+                if (obj.getString("name").equals(name)) {
+                    String time = obj.getString("time");
+                    boolean sound = obj.getBoolean("soundEnabled");
+                    java.util.Map<String, Boolean> days = new java.util.HashMap<>();
+                    org.json.JSONObject daysObj = obj.getJSONObject("days");
+                    String[] dayKeys = {"mon","tue","wed","thu","fri","sat","sun"};
+                    for (String key : dayKeys) {
+                        days.put(key, daysObj.optBoolean(key, false));
+                    }
+                    return new Habit(name, time, sound, days);
+                }
+            }
+        } catch (Exception e) { e.printStackTrace(); }
+        return null;
     }
 
     private boolean shouldRunToday(Habit habit) {
