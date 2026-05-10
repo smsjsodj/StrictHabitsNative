@@ -61,5 +61,4 @@ public class HabitScheduler {
         String key = keys[dayOfWeek - 1];
         return habit.getDays() != null && habit.getDays().getOrDefault(key, false);
     }
-    }
 }
