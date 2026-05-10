@@ -8,12 +8,11 @@ import android.os.Build;
 import java.util.Calendar;
 
 public class HabitScheduler {
-    public static void schedule(Context context, Habit habit) {
+    public static void scheduleOnce(Context context, Habit habit) {
         AlarmManager alarmManager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
         Intent intent = new Intent(context, AlarmReceiver.class);
         intent.putExtra("habit_name", habit.getName());
         intent.putExtra("habit_time", habit.getTime());
-        intent.putExtra("telegram_only", habit.isTelegramOnly());
         intent.putExtra("sound_enabled", habit.isSoundEnabled());
 
         PendingIntent pendingIntent = PendingIntent.getBroadcast(context,
@@ -21,13 +20,9 @@ public class HabitScheduler {
                 intent,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
-        String[] parts = habit.getTime().split(":");
-        int hour = Integer.parseInt(parts[0]);
-        int minute = Integer.parseInt(parts[1]);
-
         Calendar calendar = Calendar.getInstance();
-        calendar.set(Calendar.HOUR_OF_DAY, hour);
-        calendar.set(Calendar.MINUTE, minute);
+        calendar.set(Calendar.HOUR_OF_DAY, habit.getHour());
+        calendar.set(Calendar.MINUTE, habit.getMinute());
         calendar.set(Calendar.SECOND, 0);
         calendar.set(Calendar.MILLISECOND, 0);
 

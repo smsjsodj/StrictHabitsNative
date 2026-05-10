@@ -9,27 +9,45 @@
         android:id="@+id/habitName"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="Название привычки"/>
+        android:hint="Название привычки"
+        android:layout_marginBottom="16dp"/>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Время:"/>
 
     <Button
         android:id="@+id/btnSelectTime"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:text="Выбрать время"/>
+        android:text="12:00"
+        android:layout_marginBottom="16dp"/>
 
-    <androidx.appcompat.widget.SwitchCompat
-        android:id="@+id/switchTelegram"
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Повторять:"/>
+
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:text="🔐 Только Telegram разблокировка"/>
+        android:orientation="horizontal"
+        android:weightSum="7">
+        <CheckBox android:id="@+id/chkMon" android:layout_weight="1" android:text="Пн"/>
+        <CheckBox android:id="@+id/chkTue" android:layout_weight="1" android:text="Вт"/>
+        <CheckBox android:id="@+id/chkWen" android:layout_weight="1" android:text="Ср"/>
+        <CheckBox android:id="@+id/chkThu" android:layout_weight="1" android:text="Чт"/>
+        <CheckBox android:id="@+id/chkFri" android:layout_weight="1" android:text="Пт"/>
+        <CheckBox android:id="@+id/chkSat" android:layout_weight="1" android:text="Сб"/>
+        <CheckBox android:id="@+id/chkSun" android:layout_weight="1" android:text="Вс"/>
+    </LinearLayout>
 
-    <androidx.appcompat.widget.SwitchCompat
-        android:id="@+id/switchSound"
-        android:layout_width="match_parent"
+    <CheckBox
+        android:id="@+id/chkSound"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:text="🔊 Звук"/>
+        android:text="🔊 Включить звук"
+        android:layout_marginTop="16dp"/>
 
 </LinearLayout>

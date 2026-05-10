@@ -11,7 +11,6 @@ public class AlarmReceiver extends BroadcastReceiver {
         Intent serviceIntent = new Intent(context, LockService.class);
         serviceIntent.putExtra("habit_name", intent.getStringExtra("habit_name"));
         serviceIntent.putExtra("habit_time", intent.getStringExtra("habit_time"));
-        serviceIntent.putExtra("telegram_only", intent.getBooleanExtra("telegram_only", false));
         serviceIntent.putExtra("sound_enabled", intent.getBooleanExtra("sound_enabled", true));
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             context.startForegroundService(serviceIntent);

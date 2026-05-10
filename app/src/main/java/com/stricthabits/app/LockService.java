@@ -25,7 +25,7 @@ public class LockService extends Service {
     private Runnable soundRunnable;
     private MediaPlayer mediaPlayer;
     private String habitName, habitTime;
-    private boolean telegramOnly, soundEnabled;
+    private boolean soundEnabled;
     private boolean isUnlocked = false;
 
     @Override
@@ -33,13 +33,10 @@ public class LockService extends Service {
         if (intent != null) {
             habitName = intent.getStringExtra("habit_name");
             habitTime = intent.getStringExtra("habit_time");
-            telegramOnly = intent.getBooleanExtra("telegram_only", false);
             soundEnabled = intent.getBooleanExtra("sound_enabled", true);
         }
         showOverlay();
-        if (soundEnabled) {
-            startSoundLoop();
-        }
+        if (soundEnabled) startSoundLoop();
         return START_STICKY;
     }
 
@@ -87,7 +84,7 @@ public class LockService extends Service {
             @Override
             public void run() {
                 if (!isUnlocked) {
-                    playBeep();
+                    playSound();
                     handler.postDelayed(this, 2000);
                 }
             }
@@ -95,18 +92,17 @@ public class LockService extends Service {
         handler.post(soundRunnable);
     }
 
-    private void playBeep() {
+    private void playSound() {
         try {
             if (mediaPlayer != null) {
                 mediaPlayer.release();
             }
-            // Используем системный звук уведомления (работает всегда)
-            mediaPlayer = MediaPlayer.create(this, android.provider.Settings.System.DEFAULT_NOTIFICATION_URI);
+            mediaPlayer = MediaPlayer.create(this, Settings.System.DEFAULT_NOTIFICATION_URI);
             if (mediaPlayer != null) {
                 mediaPlayer.start();
                 mediaPlayer.setOnCompletionListener(mp -> mp.release());
             } else {
-                // Запасной вариант: вибрация
+                // вибрация как запасной вариант
                 Vibrator v = (Vibrator) getSystemService(VIBRATOR_SERVICE);
                 if (v != null) {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -116,9 +112,7 @@ public class LockService extends Service {
                     }
                 }
             }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+        } catch (Exception e) { e.printStackTrace(); }
     }
 
     private void stopSoundLoop() {
