@@ -3,6 +3,7 @@ package com.stricthabits.app;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.os.Build;
 
 public class AlarmReceiver extends BroadcastReceiver {
     @Override
@@ -12,7 +13,7 @@ public class AlarmReceiver extends BroadcastReceiver {
         serviceIntent.putExtra("habit_time", intent.getStringExtra("habit_time"));
         serviceIntent.putExtra("telegram_only", intent.getBooleanExtra("telegram_only", false));
         serviceIntent.putExtra("sound_enabled", intent.getBooleanExtra("sound_enabled", true));
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             context.startForegroundService(serviceIntent);
         } else {
             context.startService(serviceIntent);

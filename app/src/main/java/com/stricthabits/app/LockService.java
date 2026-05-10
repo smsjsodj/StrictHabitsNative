@@ -3,10 +3,12 @@ package com.stricthabits.app;
 import android.app.Service;
 import android.content.Intent;
 import android.graphics.PixelFormat;
-import android.media.ToneGenerator;
+import android.media.MediaPlayer;
 import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
+import android.os.VibrationEffect;
+import android.os.Vibrator;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -21,7 +23,7 @@ public class LockService extends Service {
     private View overlayView;
     private Handler handler = new Handler();
     private Runnable soundRunnable;
-    private ToneGenerator toneGenerator;
+    private MediaPlayer mediaPlayer;
     private String habitName, habitTime;
     private boolean telegramOnly, soundEnabled;
     private boolean isUnlocked = false;
@@ -35,7 +37,9 @@ public class LockService extends Service {
             soundEnabled = intent.getBooleanExtra("sound_enabled", true);
         }
         showOverlay();
-        if (soundEnabled) startSoundLoop();
+        if (soundEnabled) {
+            startSoundLoop();
+        }
         return START_STICKY;
     }
 
@@ -79,12 +83,11 @@ public class LockService extends Service {
     }
 
     private void startSoundLoop() {
-        toneGenerator = new ToneGenerator(ToneGenerator.TONE_CDMA_ALERT_CALL_GUARD, 100);
         soundRunnable = new Runnable() {
             @Override
             public void run() {
-                if (!isUnlocked && toneGenerator != null) {
-                    toneGenerator.startTone(ToneGenerator.TONE_CDMA_ALERT_CALL_GUARD, 1000);
+                if (!isUnlocked) {
+                    playBeep();
                     handler.postDelayed(this, 2000);
                 }
             }
@@ -92,10 +95,38 @@ public class LockService extends Service {
         handler.post(soundRunnable);
     }
 
+    private void playBeep() {
+        try {
+            if (mediaPlayer != null) {
+                mediaPlayer.release();
+            }
+            // Используем системный звук уведомления (работает всегда)
+            mediaPlayer = MediaPlayer.create(this, android.provider.Settings.System.DEFAULT_NOTIFICATION_URI);
+            if (mediaPlayer != null) {
+                mediaPlayer.start();
+                mediaPlayer.setOnCompletionListener(mp -> mp.release());
+            } else {
+                // Запасной вариант: вибрация
+                Vibrator v = (Vibrator) getSystemService(VIBRATOR_SERVICE);
+                if (v != null) {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        v.vibrate(VibrationEffect.createOneShot(500, VibrationEffect.DEFAULT_AMPLITUDE));
+                    } else {
+                        v.vibrate(500);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
     private void stopSoundLoop() {
         if (soundRunnable != null) handler.removeCallbacks(soundRunnable);
-        if (toneGenerator != null) toneGenerator.release();
-        toneGenerator = null;
+        if (mediaPlayer != null) {
+            mediaPlayer.release();
+            mediaPlayer = null;
+        }
     }
 
     private void unlock() {
@@ -117,7 +148,5 @@ public class LockService extends Service {
     }
 
     @Override
-    public IBinder onBind(Intent intent) {
-        return null;
-    }
+    public IBinder onBind(Intent intent) { return null; }
 }
