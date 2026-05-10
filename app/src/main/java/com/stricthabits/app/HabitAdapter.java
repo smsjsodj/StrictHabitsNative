@@ -19,15 +19,9 @@ public class HabitAdapter extends RecyclerView.Adapter<HabitAdapter.ViewHolder> 
     private OnTestListener testListener;
     private OnCompleteListener completeListener;
 
-    public interface OnDeleteListener {
-        void onDelete(int position);
-    }
-    public interface OnTestListener {
-        void onTest(Habit habit);
-    }
-    public interface OnCompleteListener {
-        void onComplete(int position, boolean completed);
-    }
+    public interface OnDeleteListener { void onDelete(int position); }
+    public interface OnTestListener { void onTest(Habit habit); }
+    public interface OnCompleteListener { void onComplete(int position, boolean completed); }
 
     public HabitAdapter(List<Habit> habits,
                         OnDeleteListener deleteListener,
@@ -50,44 +44,43 @@ public class HabitAdapter extends RecyclerView.Adapter<HabitAdapter.ViewHolder> 
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
         Habit h = habits.get(position);
         holder.habitName.setText(h.getName());
-        holder.habitTime.setText(h.getTime());
-        // Показываем дни
-        StringBuilder daysStr = new StringBuilder();
-        Map<String, Boolean> days = h.getDays();
-        if (days != null) {
-            if (days.get("Mon")) daysStr.append("Пн ");
-            if (days.get("Tue")) daysStr.append("Вт ");
-            if (days.get("Wed")) daysStr.append("Ср ");
-            if (days.get("Thu")) daysStr.append("Чт ");
-            if (days.get("Fri")) daysStr.append("Пт ");
-            if (days.get("Sat")) daysStr.append("Сб ");
-            if (days.get("Sun")) daysStr.append("Вс ");
-        }
-        holder.habitDays.setText(daysStr.toString().trim());
+        String daysStr = getDaysString(h.getDays());
+        holder.habitDetails.setText(h.getTime() + "  " + daysStr);
         holder.checkCompleted.setChecked(h.isCompletedToday());
-        holder.btnTest.setOnClickListener(v -> testListener.onTest(h));
-        holder.btnDelete.setOnClickListener(v -> deleteListener.onDelete(position));
+
         holder.checkCompleted.setOnCheckedChangeListener((buttonView, isChecked) -> {
             completeListener.onComplete(position, isChecked);
         });
+        holder.btnTest.setOnClickListener(v -> testListener.onTest(h));
+        holder.btnDelete.setOnClickListener(v -> deleteListener.onDelete(position));
+    }
+
+    private String getDaysString(Map<String, Boolean> days) {
+        if (days == null) return "";
+        String[] names = {"пн","вт","ср","чт","пт","сб","вс"};
+        String[] keys = {"mon","tue","wed","thu","fri","sat","sun"};
+        StringBuilder sb = new StringBuilder();
+        for (int i=0; i<keys.length; i++) {
+            if (days.getOrDefault(keys[i], false)) {
+                sb.append(names[i]).append(" ");
+            }
+        }
+        return sb.toString().trim();
     }
 
     @Override
-    public int getItemCount() {
-        return habits.size();
-    }
+    public int getItemCount() { return habits.size(); }
 
     static class ViewHolder extends RecyclerView.ViewHolder {
-        TextView habitName, habitTime, habitDays;
         CheckBox checkCompleted;
+        TextView habitName, habitDetails;
         Button btnTest, btnDelete;
 
-        ViewHolder(View itemView) {
+        ViewHolder(@NonNull View itemView) {
             super(itemView);
-            habitName = itemView.findViewById(R.id.habitName);
-            habitTime = itemView.findViewById(R.id.habitTime);
-            habitDays = itemView.findViewById(R.id.habitDays);
             checkCompleted = itemView.findViewById(R.id.checkCompleted);
+            habitName = itemView.findViewById(R.id.habitName);
+            habitDetails = itemView.findViewById(R.id.habitDetails);
             btnTest = itemView.findViewById(R.id.btnTest);
             btnDelete = itemView.findViewById(R.id.btnDelete);
         }

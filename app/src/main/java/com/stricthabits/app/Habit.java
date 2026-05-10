@@ -1,27 +1,32 @@
 package com.stricthabits.app;
 
 import java.io.Serializable;
+import java.util.HashMap;
+import java.util.Map;
 
 public class Habit implements Serializable {
     private String name;
     private String time;
     private boolean soundEnabled;
-    private int hour, minute;
+    private boolean completedToday;
+    private Map<String, Boolean> days; // key: "mon","tue",...
 
-    public Habit(String name, String time, boolean soundEnabled) {
+    public Habit(String name, String time, boolean soundEnabled, Map<String, Boolean> days) {
         this.name = name;
         this.time = time;
         this.soundEnabled = soundEnabled;
-        String[] parts = time.split(":");
-        if (parts.length == 2) {
-            hour = Integer.parseInt(parts[0]);
-            minute = Integer.parseInt(parts[1]);
-        }
+        this.days = days;
+        this.completedToday = false;
     }
 
+    // Геттеры
     public String getName() { return name; }
     public String getTime() { return time; }
     public boolean isSoundEnabled() { return soundEnabled; }
-    public int getHour() { return hour; }
-    public int getMinute() { return minute; }
+    public boolean isCompletedToday() { return completedToday; }
+    public Map<String, Boolean> getDays() { return days; }
+
+    // Сеттеры
+    public void setCompletedToday(boolean completed) { this.completedToday = completed; }
+    public void setSoundEnabled(boolean sound) { this.soundEnabled = sound; }
 }

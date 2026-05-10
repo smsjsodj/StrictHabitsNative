@@ -14,24 +14,25 @@ public class BootReceiver extends BroadcastReceiver {
     public void onReceive(Context context, Intent intent) {
         SharedPreferences prefs = context.getSharedPreferences("habits", Context.MODE_PRIVATE);
         try {
-            JSONArray arr = new JSONArray(prefs.getString("list", "[]"));
+            String json = prefs.getString("list", "[]");
+            JSONArray arr = new JSONArray(json);
             for (int i = 0; i < arr.length(); i++) {
                 JSONObject obj = arr.getJSONObject(i);
                 String name = obj.getString("name");
                 String time = obj.getString("time");
-                boolean sound = obj.getBoolean("sound");
-                JSONObject daysObj = obj.getJSONObject("days");
+                boolean sound = obj.getBoolean("soundEnabled");
                 Map<String, Boolean> days = new HashMap<>();
-                days.put("Mon", daysObj.getBoolean("Mon"));
-                days.put("Tue", daysObj.getBoolean("Tue"));
-                days.put("Wed", daysObj.getBoolean("Wed"));
-                days.put("Thu", daysObj.getBoolean("Thu"));
-                days.put("Fri", daysObj.getBoolean("Fri"));
-                days.put("Sat", daysObj.getBoolean("Sat"));
-                days.put("Sun", daysObj.getBoolean("Sun"));
+                JSONObject daysObj = obj.getJSONObject("days");
+                days.put("mon", daysObj.optBoolean("mon", false));
+                days.put("tue", daysObj.optBoolean("tue", false));
+                days.put("wed", daysObj.optBoolean("wed", false));
+                days.put("thu", daysObj.optBoolean("thu", false));
+                days.put("fri", daysObj.optBoolean("fri", false));
+                days.put("sat", daysObj.optBoolean("sat", false));
+                days.put("sun", daysObj.optBoolean("sun", false));
                 Habit habit = new Habit(name, time, sound, days);
-                HabitScheduler.scheduleOnce(context, habit);
+                HabitScheduler.schedule(context, habit);
             }
-        } catch (Exception e) {}
+        } catch (Exception e) { e.printStackTrace(); }
     }
 }

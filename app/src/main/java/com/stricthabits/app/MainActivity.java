@@ -8,15 +8,20 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
-import android.view.LayoutInflater;
 import android.view.View;
-import android.widget.*;
+import android.widget.Button;
+import android.widget.CheckBox;
+import android.widget.EditText;
+import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import org.json.JSONArray;
 import org.json.JSONObject;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -41,13 +46,20 @@ public class MainActivity extends AppCompatActivity {
                 (position, completed) -> {
                     habitList.get(position).setCompletedToday(completed);
                     saveHabits();
+                    Toast.makeText(this, completed ? "Выполнено!" : "Отмечено как невыполненное", Toast.LENGTH_SHORT).show();
                 });
         recyclerView.setAdapter(adapter);
 
         findViewById(R.id.btnAddHabit).setOnClickListener(v -> showAddDialog());
+        findViewById(R.id.btnRequestOverlay).setOnClickListener(v -> requestOverlayPermission());
 
-        // Запрос разрешения на оверлей
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
+            requestOverlayPermission();
+        }
+    }
+
+    private void requestOverlayPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             Intent intent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
                     Uri.parse("package:" + getPackageName()));
             startActivity(intent);
@@ -59,31 +71,16 @@ public class MainActivity extends AppCompatActivity {
         View view = getLayoutInflater().inflate(R.layout.dialog_add_habit, null);
         EditText etName = view.findViewById(R.id.habitName);
         Button btnTime = view.findViewById(R.id.btnSelectTime);
+        CheckBox chkSound = view.findViewById(R.id.chkSound);
+
+        // Дни недели
         CheckBox chkMon = view.findViewById(R.id.chkMon);
         CheckBox chkTue = view.findViewById(R.id.chkTue);
-        CheckBox chkWen = view.findViewById(R.id.chkWen);
+        CheckBox chkWed = view.findViewById(R.id.chkWed);
         CheckBox chkThu = view.findViewById(R.id.chkThu);
         CheckBox chkFri = view.findViewById(R.id.chkFri);
         CheckBox chkSat = view.findViewById(R.id.chkSat);
         CheckBox chkSun = view.findViewById(R.id.chkSun);
-        CheckBox chkSound = view.findViewById(R.id.chkSound);
-
-        Map<String, Boolean> days = new HashMap<>();
-        days.put("Mon", true);
-        days.put("Tue", true);
-        days.put("Wed", true);
-        days.put("Thu", true);
-        days.put("Fri", true);
-        days.put("Sat", true);
-        days.put("Sun", true);
-
-        chkMon.setChecked(true);
-        chkTue.setChecked(true);
-        chkWen.setChecked(true);
-        chkThu.setChecked(true);
-        chkFri.setChecked(true);
-        chkSat.setChecked(true);
-        chkSun.setChecked(true);
 
         int[] hour = {12};
         int[] minute = {0};
@@ -107,43 +104,22 @@ public class MainActivity extends AppCompatActivity {
                         return;
                     }
                     String time = String.format("%02d:%02d", hour[0], minute[0]);
-                    days.put("Mon", chkMon.isChecked());
-                    days.put("Tue", chkTue.isChecked());
-                    days.put("Wed", chkWen.isChecked());
-                    days.put("Thu", chkThu.isChecked());
-                    days.put("Fri", chkFri.isChecked());
-                    days.put("Sat", chkSat.isChecked());
-                    days.put("Sun", chkSun.isChecked());
+                    Map<String, Boolean> days = new HashMap<>();
+                    days.put("mon", chkMon.isChecked());
+                    days.put("tue", chkTue.isChecked());
+                    days.put("wed", chkWed.isChecked());
+                    days.put("thu", chkThu.isChecked());
+                    days.put("fri", chkFri.isChecked());
+                    days.put("sat", chkSat.isChecked());
+                    days.put("sun", chkSun.isChecked());
+
                     Habit habit = new Habit(name, time, chkSound.isChecked(), days);
                     habitList.add(habit);
                     saveHabits();
                     adapter.notifyItemInserted(habitList.size() - 1);
-                    scheduleAlarm(habit);
+                    HabitScheduler.schedule(this, habit);
                 })
                 .show();
-    }
-
-    private void scheduleAlarm(Habit habit) {
-        // Проверяем, нужен ли сегодня будильник
-        String today = getToday();
-        if (habit.getDays().get(today)) {
-            HabitScheduler.scheduleOnce(this, habit);
-        }
-    }
-
-    private String getToday() {
-        Calendar c = Calendar.getInstance();
-        int day = c.get(Calendar.DAY_OF_WEEK);
-        switch (day) {
-            case Calendar.MONDAY: return "Mon";
-            case Calendar.TUESDAY: return "Tue";
-            case Calendar.WEDNESDAY: return "Wed";
-            case Calendar.THURSDAY: return "Thu";
-            case Calendar.FRIDAY: return "Fri";
-            case Calendar.SATURDAY: return "Sat";
-            case Calendar.SUNDAY: return "Sun";
-            default: return "Mon";
-        }
     }
 
     private void deleteHabit(int position) {
@@ -169,24 +145,22 @@ public class MainActivity extends AppCompatActivity {
                 JSONObject obj = arr.getJSONObject(i);
                 String name = obj.getString("name");
                 String time = obj.getString("time");
-                boolean sound = obj.getBoolean("sound");
-                boolean completed = obj.getBoolean("completed");
-                JSONObject daysObj = obj.getJSONObject("days");
+                boolean sound = obj.getBoolean("soundEnabled");
+                boolean completed = obj.optBoolean("completedToday", false);
                 Map<String, Boolean> days = new HashMap<>();
-                days.put("Mon", daysObj.getBoolean("Mon"));
-                days.put("Tue", daysObj.getBoolean("Tue"));
-                days.put("Wed", daysObj.getBoolean("Wed"));
-                days.put("Thu", daysObj.getBoolean("Thu"));
-                days.put("Fri", daysObj.getBoolean("Fri"));
-                days.put("Sat", daysObj.getBoolean("Sat"));
-                days.put("Sun", daysObj.getBoolean("Sun"));
+                JSONObject daysObj = obj.getJSONObject("days");
+                days.put("mon", daysObj.optBoolean("mon", false));
+                days.put("tue", daysObj.optBoolean("tue", false));
+                days.put("wed", daysObj.optBoolean("wed", false));
+                days.put("thu", daysObj.optBoolean("thu", false));
+                days.put("fri", daysObj.optBoolean("fri", false));
+                days.put("sat", daysObj.optBoolean("sat", false));
+                days.put("sun", daysObj.optBoolean("sun", false));
                 Habit h = new Habit(name, time, sound, days);
                 h.setCompletedToday(completed);
                 habitList.add(h);
             }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+        } catch (Exception e) { e.printStackTrace(); }
     }
 
     private void saveHabits() {
@@ -196,23 +170,16 @@ public class MainActivity extends AppCompatActivity {
                 JSONObject obj = new JSONObject();
                 obj.put("name", h.getName());
                 obj.put("time", h.getTime());
-                obj.put("sound", h.isSoundEnabled());
-                obj.put("completed", h.isCompletedToday());
+                obj.put("soundEnabled", h.isSoundEnabled());
+                obj.put("completedToday", h.isCompletedToday());
                 JSONObject daysObj = new JSONObject();
-                Map<String, Boolean> days = h.getDays();
-                daysObj.put("Mon", days.get("Mon"));
-                daysObj.put("Tue", days.get("Tue"));
-                daysObj.put("Wed", days.get("Wed"));
-                daysObj.put("Thu", days.get("Thu"));
-                daysObj.put("Fri", days.get("Fri"));
-                daysObj.put("Sat", days.get("Sat"));
-                daysObj.put("Sun", days.get("Sun"));
+                for (Map.Entry<String, Boolean> e : h.getDays().entrySet()) {
+                    daysObj.put(e.getKey(), e.getValue());
+                }
                 obj.put("days", daysObj);
                 arr.put(obj);
             }
             prefs.edit().putString("list", arr.toString()).apply();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+        } catch (Exception e) { e.printStackTrace(); }
     }
 }

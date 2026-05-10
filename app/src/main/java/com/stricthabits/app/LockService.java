@@ -97,7 +97,6 @@ public class LockService extends Service {
             if (mediaPlayer != null) {
                 mediaPlayer.release();
             }
-            // Встроенный звук уведомления
             mediaPlayer = MediaPlayer.create(this, android.provider.Settings.System.DEFAULT_NOTIFICATION_URI);
             if (mediaPlayer != null) {
                 mediaPlayer.start();
