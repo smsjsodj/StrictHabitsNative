@@ -3,7 +3,6 @@ package com.stricthabits.app;
 import android.app.Service;
 import android.content.Intent;
 import android.graphics.PixelFormat;
-import android.media.AudioAttributes;
 import android.media.ToneGenerator;
 import android.os.Build;
 import android.os.Handler;
@@ -80,17 +79,14 @@ public class LockService extends Service {
     }
 
     private void startSoundLoop() {
-        AudioAttributes audioAttributes = new AudioAttributes.Builder()
-                .setUsage(AudioAttributes.USAGE_ALARM)
-                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                .build();
-        toneGenerator = new ToneGenerator(audioAttributes, 100); // максимальная громкость
+        // Используем стандартный ToneGenerator с типом тона ALERT (или другие)
+        toneGenerator = new ToneGenerator(ToneGenerator.TONE_CDMA_ALERT_CALL_GUARD, 100); // громкость 100% (max)
 
         soundRunnable = new Runnable() {
             @Override
             public void run() {
                 if (!isUnlocked && toneGenerator != null) {
-                    toneGenerator.startTone(ToneGenerator.TONE_CDMA_ALERT_CALL_GUARD, 1000);
+                    toneGenerator.startTone(ToneGenerator.TONE_CDMA_ALERT_CALL_GUARD, 1000); // длительность 1 секунда
                     handler.postDelayed(this, 2000);
                 }
             }

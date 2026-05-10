@@ -1,4 +1,5 @@
 package com.stricthabits.app;
+import android.view.View;
 
 import android.app.AlertDialog;
 import android.content.Intent;
@@ -7,10 +8,12 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
+import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.SwitchCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import com.google.android.material.timepicker.MaterialTimePicker;
@@ -64,8 +67,8 @@ public class MainActivity extends AppCompatActivity {
         View view = getLayoutInflater().inflate(R.layout.dialog_add_habit, null);
         EditText etName = view.findViewById(R.id.habitName);
         Button btnTime = view.findViewById(R.id.btnSelectTime);
-        androidx.appcompat.widget.SwitchCompat swTelegram = view.findViewById(R.id.switchTelegram);
-        androidx.appcompat.widget.SwitchCompat swSound = view.findViewById(R.id.switchSound);
+        SwitchCompat swTelegram = view.findViewById(R.id.switchTelegram);
+        SwitchCompat swSound = view.findViewById(R.id.switchSound);
 
         int[] hour = {12}, minute = {0};
         btnTime.setText("12:00");
