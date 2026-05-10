@@ -54,7 +54,7 @@ public class TelegramService extends Service {
                                 }
                             }
                         } catch (Exception e) { e.printStackTrace(); }
-                        handler.postDelayed(this, 2000);
+                        handler.postDelayed(pollRunnable, 2000);
                     }
                 });
             }
