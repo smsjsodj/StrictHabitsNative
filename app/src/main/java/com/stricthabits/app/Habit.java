@@ -9,6 +9,7 @@ public class Habit implements Serializable {
     private String time;
     private boolean soundEnabled;
     private boolean completedToday;
+    private String lastCompletedDate; // format: "yyyy-MM-dd"
     private Map<String, Boolean> days; // key: "mon","tue",...
 
     public Habit(String name, String time, boolean soundEnabled, Map<String, Boolean> days) {
@@ -17,6 +18,7 @@ public class Habit implements Serializable {
         this.soundEnabled = soundEnabled;
         this.days = days;
         this.completedToday = false;
+        this.lastCompletedDate = "";
     }
 
     // Геттеры
@@ -24,9 +26,11 @@ public class Habit implements Serializable {
     public String getTime() { return time; }
     public boolean isSoundEnabled() { return soundEnabled; }
     public boolean isCompletedToday() { return completedToday; }
+    public String getLastCompletedDate() { return lastCompletedDate; }
     public Map<String, Boolean> getDays() { return days; }
 
     // Сеттеры
     public void setCompletedToday(boolean completed) { this.completedToday = completed; }
+    public void setLastCompletedDate(String date) { this.lastCompletedDate = date; }
     public void setSoundEnabled(boolean sound) { this.soundEnabled = sound; }
 }

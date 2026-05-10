@@ -42,7 +42,11 @@ public class HabitScheduler {
         }
 
         try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                AlarmManager.AlarmClockInfo info = new AlarmManager.AlarmClockInfo(
+                        calendar.getTimeInMillis(), pendingIntent);
+                alarmManager.setAlarmClock(info, pendingIntent);
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP,
                         calendar.getTimeInMillis(), pendingIntent);
             } else {

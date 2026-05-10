@@ -1,7 +1,9 @@
 package com.stricthabits.app;
 
+import android.app.AlarmManager;
 import android.app.AlertDialog;
 import android.app.TimePickerDialog;
+import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.net.Uri;
@@ -18,9 +20,12 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import org.json.JSONArray;
 import org.json.JSONObject;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 public class MainActivity extends AppCompatActivity {
@@ -45,8 +50,15 @@ public class MainActivity extends AppCompatActivity {
                 position -> deleteHabit(position),
                 habit -> testHabit(habit),
                 (position, completed) -> {
-                    habitList.get(position).setCompletedToday(completed);
+                    Habit h = habitList.get(position);
+                    h.setCompletedToday(completed);
+                    if (completed) {
+                        h.setLastCompletedDate(new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(new Date()));
+                    } else {
+                        h.setLastCompletedDate("");
+                    }
                     saveHabits();
+                    adapter.notifyItemChanged(position);
                     Toast.makeText(this, completed ? "Выполнено!" : "Отмечено как невыполненное", Toast.LENGTH_SHORT).show();
                 });
         recyclerView.setAdapter(adapter);
@@ -60,6 +72,14 @@ public class MainActivity extends AppCompatActivity {
             requestOverlayPermission();
         } else {
             btnOverlay.setVisibility(View.GONE);
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            AlarmManager alarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
+            if (!alarmManager.canScheduleExactAlarms()) {
+                Intent intent = new Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM);
+                startActivity(intent);
+            }
         }
     }
 
@@ -168,7 +188,11 @@ public class MainActivity extends AppCompatActivity {
                 String name = obj.getString("name");
                 String time = obj.getString("time");
                 boolean sound = obj.getBoolean("soundEnabled");
-                boolean completed = obj.optBoolean("completedToday", false);
+                String lastDate = obj.optString("lastCompletedDate", "");
+                
+                String today = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(new Date());
+                boolean completed = today.equals(lastDate);
+                
                 Map<String, Boolean> days = new HashMap<>();
                 JSONObject daysObj = obj.getJSONObject("days");
                 days.put("mon", daysObj.optBoolean("mon", false));
@@ -180,6 +204,7 @@ public class MainActivity extends AppCompatActivity {
                 days.put("sun", daysObj.optBoolean("sun", false));
                 Habit h = new Habit(name, time, sound, days);
                 h.setCompletedToday(completed);
+                h.setLastCompletedDate(lastDate);
                 habitList.add(h);
             }
         } catch (Exception e) { e.printStackTrace(); }
@@ -199,7 +224,7 @@ public class MainActivity extends AppCompatActivity {
                 obj.put("name", h.getName());
                 obj.put("time", h.getTime());
                 obj.put("soundEnabled", h.isSoundEnabled());
-                obj.put("completedToday", h.isCompletedToday());
+                obj.put("lastCompletedDate", h.getLastCompletedDate());
                 JSONObject daysObj = new JSONObject();
                 for (Map.Entry<String, Boolean> e : h.getDays().entrySet()) {
                     daysObj.put(e.getKey(), e.getValue());

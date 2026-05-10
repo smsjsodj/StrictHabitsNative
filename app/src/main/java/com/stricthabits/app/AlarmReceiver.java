@@ -14,14 +14,6 @@ public class AlarmReceiver extends BroadcastReceiver {
         String habitTime = intent.getStringExtra("habit_time");
         boolean soundEnabled = intent.getBooleanExtra("sound_enabled", true);
 
-        // Проверка: соответствует ли текущее время времени привычки (с запасом 5 мин)
-        if (!isTimeMatch(habitTime)) {
-            // Если время сильно не совпадает, просто перепланируем и выходим
-            Habit h = findHabitByName(context, habitName);
-            if (h != null) HabitScheduler.schedule(context, h);
-            return;
-        }
-
         // Загрузить привычку из SharedPreferences, чтобы получить дни недели
         Habit habit = findHabitByName(context, habitName);
         if (habit != null) {
