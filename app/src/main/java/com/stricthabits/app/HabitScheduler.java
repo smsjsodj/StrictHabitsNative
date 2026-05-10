@@ -31,9 +31,14 @@ public class HabitScheduler {
         calendar.set(Calendar.SECOND, 0);
         calendar.set(Calendar.MILLISECOND, 0);
 
-        // Если время уже прошло сегодня – ставим на завтра
-        if (calendar.getTimeInMillis() <= System.currentTimeMillis()) {
+        // Ищем ближайший активный день
+        int attempts = 0;
+        while (attempts < 8) {
+            if (calendar.getTimeInMillis() > System.currentTimeMillis() && isDayEnabled(habit, calendar)) {
+                break;
+            }
             calendar.add(Calendar.DAY_OF_YEAR, 1);
+            attempts++;
         }
 
         try {
@@ -45,9 +50,16 @@ public class HabitScheduler {
                         calendar.getTimeInMillis(), pendingIntent);
             }
         } catch (SecurityException e) {
-            // Fallback for Android 14+ if permission is not granted
             alarmManager.set(AlarmManager.RTC_WAKEUP,
                     calendar.getTimeInMillis(), pendingIntent);
         }
+    }
+
+    private static boolean isDayEnabled(Habit habit, Calendar cal) {
+        String[] keys = {"sun", "mon", "tue", "wed", "thu", "fri", "sat"};
+        int dayOfWeek = cal.get(Calendar.DAY_OF_WEEK); // 1 = Sunday, 2 = Monday...
+        String key = keys[dayOfWeek - 1];
+        return habit.getDays() != null && habit.getDays().getOrDefault(key, false);
+    }
     }
 }

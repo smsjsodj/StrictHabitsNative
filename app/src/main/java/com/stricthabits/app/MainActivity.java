@@ -150,7 +150,11 @@ public class MainActivity extends AppCompatActivity {
         intent.putExtra("habit_name", habit.getName());
         intent.putExtra("habit_time", habit.getTime());
         intent.putExtra("sound_enabled", habit.isSoundEnabled());
-        startService(intent);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundService(intent);
+        } else {
+            startService(intent);
+        }
     }
 
     private void loadHabits() {

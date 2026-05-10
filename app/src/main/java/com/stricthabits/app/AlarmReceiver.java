@@ -16,16 +16,20 @@ public class AlarmReceiver extends BroadcastReceiver {
 
         // Загрузить привычку из SharedPreferences, чтобы получить дни недели
         Habit habit = findHabitByName(context, habitName);
-        if (habit != null && shouldRunToday(habit)) {
-            Intent serviceIntent = new Intent(context, LockService.class);
-            serviceIntent.putExtra("habit_name", habit.getName());
-            serviceIntent.putExtra("habit_time", habit.getTime());
-            serviceIntent.putExtra("sound_enabled", habit.isSoundEnabled());
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(serviceIntent);
-            } else {
-                context.startService(serviceIntent);
+        if (habit != null) {
+            if (shouldRunToday(habit)) {
+                Intent serviceIntent = new Intent(context, LockService.class);
+                serviceIntent.putExtra("habit_name", habit.getName());
+                serviceIntent.putExtra("habit_time", habit.getTime());
+                serviceIntent.putExtra("sound_enabled", habit.isSoundEnabled());
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    context.startForegroundService(serviceIntent);
+                } else {
+                    context.startService(serviceIntent);
+                }
             }
+            // Планируем следующий запуск
+            HabitScheduler.schedule(context, habit);
         }
     }
 

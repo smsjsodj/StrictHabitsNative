@@ -45,11 +45,12 @@ public class HabitAdapter extends RecyclerView.Adapter<HabitAdapter.ViewHolder> 
         Habit h = habits.get(position);
         holder.habitName.setText(h.getName());
         String daysStr = getDaysString(h.getDays());
-        holder.habitDetails.setText(h.getTime() + "  " + daysStr);
+        String status = h.isCompletedToday() ? "  ✅ ВЫПОЛНЕНО" : "  ⏳ Ждёт";
+        holder.habitDetails.setText(h.getTime() + "  " + daysStr + status);
+        holder.checkCompleted.setOnCheckedChangeListener(null);
         holder.checkCompleted.setChecked(h.isCompletedToday());
-
         holder.checkCompleted.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            completeListener.onComplete(position, isChecked);
+            completeListener.onComplete(holder.getAdapterPosition(), isChecked);
         });
         holder.btnTest.setOnClickListener(v -> testListener.onTest(h));
         holder.btnDelete.setOnClickListener(v -> deleteListener.onDelete(position));
