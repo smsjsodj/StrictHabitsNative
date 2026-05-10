@@ -3,40 +3,46 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:padding="16dp">
+    android:padding="16dp"
+    android:background="#F5F5F5">
 
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Strict Habits"
-        android:textSize="24sp"
+        android:textSize="28sp"
         android:textStyle="bold"
+        android:textColor="#D32F2F"
         android:layout_marginBottom="16dp"/>
 
     <Button
         android:id="@+id/btnAddHabit"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="+ Добавить привычку"
-        android:layout_marginBottom="8dp"/>
+        android:text="+ Новая привычка"
+        android:backgroundTint="#4CAF50"/>
 
     <Button
         android:id="@+id/btnTelegramSetup"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="📎 Настроить Telegram"
-        android:layout_marginBottom="8dp"/>
+        android:layout_marginTop="8dp"
+        android:backgroundTint="#0088cc"/>
 
     <Button
         android:id="@+id/btnRequestOverlay"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="🔓 Разрешить показ поверх окон"
-        android:layout_marginBottom="16dp"/>
+        android:layout_marginTop="8dp"
+        android:backgroundTint="#FF9800"/>
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/habitsRecycler"
         android:layout_width="match_parent"
-        android:layout_height="match_parent" />
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:layout_marginTop="16dp"/>
 
 </LinearLayout>

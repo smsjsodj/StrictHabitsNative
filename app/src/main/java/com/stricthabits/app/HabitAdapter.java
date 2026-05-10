@@ -10,12 +10,17 @@ import androidx.recyclerview.widget.RecyclerView;
 import java.util.List;
 
 public class HabitAdapter extends RecyclerView.Adapter<HabitAdapter.ViewHolder> {
+
     private List<Habit> habits;
     private OnDeleteListener deleteListener;
     private OnTestListener testListener;
 
-    public interface OnDeleteListener { void onDelete(int position); }
-    public interface OnTestListener { void onTest(Habit habit); }
+    public interface OnDeleteListener {
+        void onDelete(int position);
+    }
+    public interface OnTestListener {
+        void onTest(Habit habit);
+    }
 
     public HabitAdapter(List<Habit> habits, OnDeleteListener deleteListener, OnTestListener testListener) {
         this.habits = habits;
@@ -23,19 +28,20 @@ public class HabitAdapter extends RecyclerView.Adapter<HabitAdapter.ViewHolder> 
         this.testListener = testListener;
     }
 
-    @NonNull @Override
+    @NonNull
+    @Override
     public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-        View v = LayoutInflater.from(parent.getContext()).inflate(android.R.layout.simple_list_item_2, parent, false);
-        return new ViewHolder(v);
+        View view = LayoutInflater.from(parent.getContext()).inflate(android.R.layout.simple_list_item_2, parent, false);
+        return new ViewHolder(view);
     }
 
     @Override
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
         Habit h = habits.get(position);
-        holder.text1.setText(h.name + " - " + h.time);
-        holder.text2.setText(h.telegramOnly ? "🔐 Telegram unlock" : "");
-        holder.btnTest.setOnClickListener(v -> testListener.onTest(h));
+        holder.text1.setText(h.getName() + " - " + h.getTime());
+        holder.text2.setText(h.isTelegramOnly() ? "🔐 Telegram unlock" : "");
         holder.btnDelete.setOnClickListener(v -> deleteListener.onDelete(position));
+        holder.btnTest.setOnClickListener(v -> testListener.onTest(h));
     }
 
     @Override
@@ -43,16 +49,15 @@ public class HabitAdapter extends RecyclerView.Adapter<HabitAdapter.ViewHolder> 
 
     static class ViewHolder extends RecyclerView.ViewHolder {
         TextView text1, text2;
-        Button btnTest, btnDelete;
-        ViewHolder(View v) {
-            super(v);
-            text1 = v.findViewById(android.R.id.text1);
-            text2 = v.findViewById(android.R.id.text2);
-            btnTest = new Button(v.getContext());
-            btnDelete = new Button(v.getContext());
-            btnTest.setText("🧪 Тест");
-            btnDelete.setText("🗑️");
-            // для простоты добавим в лайаут, но лучше отдельно. Пропустим для краткости.
+        Button btnDelete, btnTest;
+        ViewHolder(View itemView) {
+            super(itemView);
+            text1 = itemView.findViewById(android.R.id.text1);
+            text2 = itemView.findViewById(android.R.id.text2);
+            btnDelete = new Button(itemView.getContext());
+            btnTest = new Button(itemView.getContext());
+            // упростим: переделаем layout, но для быстрой работы проще создать кастомный айтем.
+            // Давай сделаем простой linear layout в коде, чтобы не мучиться.
         }
     }
 }

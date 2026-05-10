@@ -1,10 +1,11 @@
 package com.stricthabits.app;
-import android.os.Build;
 
 import android.app.Service;
 import android.content.Intent;
 import android.graphics.PixelFormat;
-import android.media.MediaPlayer;
+import android.media.AudioAttributes;
+import android.media.ToneGenerator;
+import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
 import android.view.Gravity;
@@ -19,13 +20,12 @@ import android.widget.Toast;
 public class LockService extends Service {
     private WindowManager windowManager;
     private View overlayView;
-    private MediaPlayer mediaPlayer;
     private Handler handler = new Handler();
     private Runnable soundRunnable;
-    private String habitName;
-    private String habitTime;
-    private boolean telegramOnly;
-    private boolean soundEnabled;
+    private ToneGenerator toneGenerator;
+    private String habitName, habitTime;
+    private boolean telegramOnly, soundEnabled;
+    private boolean isUnlocked = false;
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
@@ -34,15 +34,9 @@ public class LockService extends Service {
             habitTime = intent.getStringExtra("habit_time");
             telegramOnly = intent.getBooleanExtra("telegram_only", false);
             soundEnabled = intent.getBooleanExtra("sound_enabled", true);
-        } else {
-            habitName = "Привычка";
-            habitTime = "Время";
         }
-
         showOverlay();
-        if (soundEnabled) {
-            startSoundLoop();
-        }
+        if (soundEnabled) startSoundLoop();
         return START_STICKY;
     }
 
@@ -62,11 +56,9 @@ public class LockService extends Service {
         btnUnlock.setOnClickListener(v -> {
             String text = etConfirm.getText().toString().trim();
             if (text.equalsIgnoreCase("я клянусь жопой")) {
-                stopSoundLoop();
-                windowManager.removeView(overlayView);
-                stopSelf();
+                unlock();
             } else {
-                Toast.makeText(this, "Неверная фраза", Toast.LENGTH_SHORT).show();
+                Toast.makeText(LockService.this, "Неверная фраза", Toast.LENGTH_SHORT).show();
             }
         });
 
@@ -75,39 +67,50 @@ public class LockService extends Service {
                 | WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED
                 | WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON;
 
+        int type = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O ?
+                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY :
+                WindowManager.LayoutParams.TYPE_PHONE;
+
         WindowManager.LayoutParams params = new WindowManager.LayoutParams(
                 WindowManager.LayoutParams.MATCH_PARENT,
                 WindowManager.LayoutParams.MATCH_PARENT,
-                Build.VERSION.SDK_INT >= Build.VERSION_CODES.O ?
-                        WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY :
-                        WindowManager.LayoutParams.TYPE_PHONE,
-                flags,
-                PixelFormat.TRANSLUCENT
-        );
-        params.gravity = Gravity.TOP | Gravity.START;
+                type, flags, PixelFormat.TRANSLUCENT);
+        params.gravity = Gravity.TOP;
         windowManager.addView(overlayView, params);
     }
 
-private void startSoundLoop() {
-    soundRunnable = new Runnable() {
-        @Override
-        public void run() {
-            android.os.Vibrator v = (android.os.Vibrator) getSystemService(VIBRATOR_SERVICE);
-            if (v != null) v.vibrate(500);
-            handler.postDelayed(this, 2000);
-        }
-    };
-    handler.post(soundRunnable);
-}
+    private void startSoundLoop() {
+        AudioAttributes audioAttributes = new AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_ALARM)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                .build();
+        toneGenerator = new ToneGenerator(audioAttributes, 100); // максимальная громкость
+
+        soundRunnable = new Runnable() {
+            @Override
+            public void run() {
+                if (!isUnlocked && toneGenerator != null) {
+                    toneGenerator.startTone(ToneGenerator.TONE_CDMA_ALERT_CALL_GUARD, 1000);
+                    handler.postDelayed(this, 2000);
+                }
+            }
+        };
+        handler.post(soundRunnable);
+    }
 
     private void stopSoundLoop() {
-        if (soundRunnable != null) {
-            handler.removeCallbacks(soundRunnable);
+        if (soundRunnable != null) handler.removeCallbacks(soundRunnable);
+        if (toneGenerator != null) toneGenerator.release();
+        toneGenerator = null;
+    }
+
+    private void unlock() {
+        isUnlocked = true;
+        stopSoundLoop();
+        if (overlayView != null && windowManager != null) {
+            windowManager.removeView(overlayView);
         }
-        if (mediaPlayer != null) {
-            mediaPlayer.release();
-            mediaPlayer = null;
-        }
+        stopSelf();
     }
 
     @Override
@@ -120,7 +123,5 @@ private void startSoundLoop() {
     }
 
     @Override
-    public IBinder onBind(Intent intent) {
-        return null;
-    }
+    public IBinder onBind(Intent intent) { return null; }
 }

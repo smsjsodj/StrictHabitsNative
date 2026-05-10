@@ -5,16 +5,18 @@
     android:orientation="vertical"
     android:padding="16dp">
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Введите ваш Chat ID из Telegram бота"
-        android:textSize="14sp" />
-
     <EditText
         android:id="@+id/chatId"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="Chat ID" />
+        android:hint="Введите Chat ID из Telegram"
+        android:inputType="number"/>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Как получить Chat ID:\n1. Напиши @StrictHabitsBot\n2. Отправь /start\n3. Скопируй число"
+        android:textSize="12sp"
+        android:layout_marginTop="8dp"/>
 
 </LinearLayout>

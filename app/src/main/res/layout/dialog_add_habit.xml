@@ -9,26 +9,27 @@
         android:id="@+id/habitName"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="Название привычки"
-        android:layout_marginBottom="8dp"/>
+        android:hint="Название привычки"/>
 
     <Button
         android:id="@+id/btnSelectTime"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Выбрать время"
-        android:layout_marginBottom="16dp"/>
+        android:layout_marginTop="8dp"
+        android:text="Выбрать время"/>
 
-    <CheckBox
-        android:id="@+id/chkTelegramOnly"
-        android:layout_width="wrap_content"
+    <androidx.appcompat.widget.SwitchCompat
+        android:id="@+id/switchTelegram"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="🔐 Разблокировка только через Telegram"/>
+        android:layout_marginTop="8dp"
+        android:text="🔐 Только Telegram разблокировка"/>
 
-    <CheckBox
-        android:id="@+id/chkSound"
-        android:layout_width="wrap_content"
+    <androidx.appcompat.widget.SwitchCompat
+        android:id="@+id/switchSound"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
         android:text="🔊 Звук"/>
 
 </LinearLayout>

@@ -1,37 +1,32 @@
 package com.stricthabits.app;
 
+import android.app.AlarmManager;
+import android.app.PendingIntent;
 import android.content.Context;
-import androidx.work.*;
-
+import android.content.Intent;
 import java.util.Calendar;
-import java.util.concurrent.TimeUnit;
 
 public class HabitScheduler {
     public static void schedule(Context context, Habit habit) {
-        String[] parts = habit.time.split(":");
-        int hour = Integer.parseInt(parts[0]);
-        int minute = Integer.parseInt(parts[1]);
-        Calendar now = Calendar.getInstance();
-        Calendar target = Calendar.getInstance();
-        target.set(Calendar.HOUR_OF_DAY, hour);
-        target.set(Calendar.MINUTE, minute);
-        target.set(Calendar.SECOND, 0);
-        long delay = target.getTimeInMillis() - now.getTimeInMillis();
-        if (delay < 0) delay += 24 * 60 * 60 * 1000;
+        AlarmManager alarmManager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
+        Intent intent = new Intent(context, AlarmReceiver.class);
+        intent.putExtra("habit_name", habit.getName());
+        intent.putExtra("habit_time", habit.getTime());
+        intent.putExtra("telegram_only", habit.isTelegramOnly());
+        intent.putExtra("sound_enabled", habit.isSoundEnabled());
 
-        OneTimeWorkRequest work = new OneTimeWorkRequest.Builder(LockWorker.class)
-                .setInitialDelay(delay, TimeUnit.MILLISECONDS)
-                .addTag(habit.name)
-                .build();
-        WorkManager.getInstance(context).enqueue(work);
-    }
+        PendingIntent pendingIntent = PendingIntent.getBroadcast(context,
+                habit.getName().hashCode(), intent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
-    public static class LockWorker extends Worker {
-        public LockWorker(Context context, WorkerParameters params) { super(context, params); }
-        @Override
-        public Result doWork() {
-            // Здесь нужно получить привычку и вызвать LockService.triggerNow
-            return Result.success();
+        Calendar calendar = Calendar.getInstance();
+        calendar.set(Calendar.HOUR_OF_DAY, habit.getHour());
+        calendar.set(Calendar.MINUTE, habit.getMinute());
+        calendar.set(Calendar.SECOND, 0);
+        if (calendar.before(Calendar.getInstance())) {
+            calendar.add(Calendar.DAY_OF_YEAR, 1);
         }
+
+        alarmManager.setRepeating(AlarmManager.RTC_WAKEUP, calendar.getTimeInMillis(),
+                AlarmManager.INTERVAL_DAY, pendingIntent);
     }
 }
