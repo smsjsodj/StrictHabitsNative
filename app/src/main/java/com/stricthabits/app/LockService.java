@@ -97,22 +97,28 @@ public class LockService extends Service {
             if (mediaPlayer != null) {
                 mediaPlayer.release();
             }
-            mediaPlayer = MediaPlayer.create(this, Settings.System.DEFAULT_NOTIFICATION_URI);
+            // Встроенный звук уведомления
+            mediaPlayer = MediaPlayer.create(this, android.provider.Settings.System.DEFAULT_NOTIFICATION_URI);
             if (mediaPlayer != null) {
                 mediaPlayer.start();
                 mediaPlayer.setOnCompletionListener(mp -> mp.release());
             } else {
-                // вибрация как запасной вариант
-                Vibrator v = (Vibrator) getSystemService(VIBRATOR_SERVICE);
-                if (v != null) {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                        v.vibrate(VibrationEffect.createOneShot(500, VibrationEffect.DEFAULT_AMPLITUDE));
-                    } else {
-                        v.vibrate(500);
-                    }
-                }
+                vibrate();
             }
-        } catch (Exception e) { e.printStackTrace(); }
+        } catch (Exception e) {
+            vibrate();
+        }
+    }
+
+    private void vibrate() {
+        Vibrator v = (Vibrator) getSystemService(VIBRATOR_SERVICE);
+        if (v != null) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                v.vibrate(VibrationEffect.createOneShot(500, VibrationEffect.DEFAULT_AMPLITUDE));
+            } else {
+                v.vibrate(500);
+            }
+        }
     }
 
     private void stopSoundLoop() {
