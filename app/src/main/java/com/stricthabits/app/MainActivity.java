@@ -151,7 +151,7 @@ public class MainActivity extends AppCompatActivity {
                 obj.put("name", h.name);
                 obj.put("time", h.time);
                 obj.put("telegramOnly", h.telegramOnly);
-                obj.put("sound", h.sound);
+                obj.put("sound", h.soundEnabled);
                 array.put(obj);
             } catch (JSONException e) {}
         }

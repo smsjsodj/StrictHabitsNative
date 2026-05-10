@@ -30,7 +30,7 @@ public class LockService extends Service {
         intent.putExtra("habit", habit.name);
         intent.putExtra("time", habit.time);
         intent.putExtra("telegramOnly", habit.telegramOnly);
-        intent.putExtra("sound", habit.sound);
+        intent.putExtra("sound", habit.soundEnabled);
         context.startService(intent);
     }
 
@@ -44,7 +44,7 @@ public class LockService extends Service {
                     intent.getBooleanExtra("sound", true)
             );
             showLockScreen();
-            if (currentHabit.sound) startLoopSound();
+            if (currentHabit.soundEnabled) startLoopSound();
         }
         return START_NOT_STICKY;
     }
