@@ -31,33 +31,33 @@ public class HabitAdapter extends RecyclerView.Adapter<HabitAdapter.ViewHolder> 
     @NonNull
     @Override
     public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-        View view = LayoutInflater.from(parent.getContext()).inflate(android.R.layout.simple_list_item_2, parent, false);
+        View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_habit, parent, false);
         return new ViewHolder(view);
     }
 
     @Override
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
         Habit h = habits.get(position);
-        holder.text1.setText(h.getName() + " - " + h.getTime());
-        holder.text2.setText(h.isTelegramOnly() ? "🔐 Telegram unlock" : "");
-        holder.btnDelete.setOnClickListener(v -> deleteListener.onDelete(position));
+        holder.habitName.setText(h.getName());
+        holder.habitDetails.setText(h.getTime() + (h.isTelegramOnly() ? " 🔐 Telegram" : ""));
         holder.btnTest.setOnClickListener(v -> testListener.onTest(h));
+        holder.btnDelete.setOnClickListener(v -> deleteListener.onDelete(position));
     }
 
     @Override
-    public int getItemCount() { return habits.size(); }
+    public int getItemCount() {
+        return habits.size();
+    }
 
     static class ViewHolder extends RecyclerView.ViewHolder {
-        TextView text1, text2;
-        Button btnDelete, btnTest;
-        ViewHolder(View itemView) {
+        TextView habitName, habitDetails;
+        Button btnTest, btnDelete;
+        ViewHolder(@NonNull View itemView) {
             super(itemView);
-            text1 = itemView.findViewById(android.R.id.text1);
-            text2 = itemView.findViewById(android.R.id.text2);
-            btnDelete = new Button(itemView.getContext());
-            btnTest = new Button(itemView.getContext());
-            // упростим: переделаем layout, но для быстрой работы проще создать кастомный айтем.
-            // Давай сделаем простой linear layout в коде, чтобы не мучиться.
+            habitName = itemView.findViewById(R.id.habitName);
+            habitDetails = itemView.findViewById(R.id.habitDetails);
+            btnTest = itemView.findViewById(R.id.btnTest);
+            btnDelete = itemView.findViewById(R.id.btnDelete);
         }
     }
 }
