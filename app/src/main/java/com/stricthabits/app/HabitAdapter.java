@@ -64,7 +64,7 @@ public class HabitAdapter extends RecyclerView.Adapter<HabitAdapter.ViewHolder> 
     }
 
     private String getDaysString(Map<String, Boolean> days) {
-        if (days == null) return "";
+        if (days == null || !days.containsValue(true)) return "каждый день";
         String[] names = {"пн","вт","ср","чт","пт","сб","вс"};
         String[] keys = {"mon","tue","wed","thu","fri","sat","sun"};
         StringBuilder sb = new StringBuilder();

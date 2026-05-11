@@ -9,8 +9,16 @@ import java.util.Calendar;
 
 public class HabitScheduler {
     public static void schedule(Context context, Habit habit) {
+        schedule(context, habit, true);
+    }
+
+    public static void scheduleNext(Context context, Habit habit) {
+        schedule(context, habit, false);
+    }
+
+    private static void schedule(Context context, Habit habit, boolean allowCurrentMinute) {
         AlarmManager alarmManager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
-        if (alarmManager == null || habit == null || !hasEnabledDay(habit)) {
+        if (alarmManager == null || habit == null) {
             return;
         }
 
@@ -25,7 +33,7 @@ public class HabitScheduler {
                 intent,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
-        Calendar calendar = getNextTriggerTime(habit);
+        Calendar calendar = getNextTriggerTime(habit, allowCurrentMinute);
         if (calendar == null) {
             alarmManager.cancel(pendingIntent);
             return;
@@ -59,11 +67,12 @@ public class HabitScheduler {
         }
     }
 
-    private static Calendar getNextTriggerTime(Habit habit) {
+    private static Calendar getNextTriggerTime(Habit habit, boolean allowCurrentMinute) {
         String[] parts = habit.getTime().split(":");
         int hour = Integer.parseInt(parts[0]);
         int minute = Integer.parseInt(parts[1]);
 
+        Calendar nowCalendar = Calendar.getInstance();
         Calendar calendar = Calendar.getInstance();
         calendar.set(Calendar.HOUR_OF_DAY, hour);
         calendar.set(Calendar.MINUTE, minute);
@@ -71,6 +80,13 @@ public class HabitScheduler {
         calendar.set(Calendar.MILLISECOND, 0);
 
         long now = System.currentTimeMillis();
+        if (allowCurrentMinute
+                && isSameMinute(calendar, nowCalendar)
+                && isDayEnabled(habit, nowCalendar)) {
+            calendar.setTimeInMillis(now + 1000);
+            return calendar;
+        }
+
         for (int attempts = 0; attempts < 8; attempts++) {
             if (calendar.getTimeInMillis() > now && isDayEnabled(habit, calendar)) {
                 return calendar;
@@ -93,8 +109,11 @@ public class HabitScheduler {
         return Build.VERSION.SDK_INT < Build.VERSION_CODES.S || alarmManager.canScheduleExactAlarms();
     }
 
-    private static boolean hasEnabledDay(Habit habit) {
-        return habit.getDays() != null && habit.getDays().containsValue(true);
+    private static boolean isSameMinute(Calendar first, Calendar second) {
+        return first.get(Calendar.YEAR) == second.get(Calendar.YEAR)
+                && first.get(Calendar.DAY_OF_YEAR) == second.get(Calendar.DAY_OF_YEAR)
+                && first.get(Calendar.HOUR_OF_DAY) == second.get(Calendar.HOUR_OF_DAY)
+                && first.get(Calendar.MINUTE) == second.get(Calendar.MINUTE);
     }
 
     private static int getRequestCode(Habit habit) {
@@ -102,9 +121,13 @@ public class HabitScheduler {
     }
 
     private static boolean isDayEnabled(Habit habit, Calendar cal) {
+        if (habit.getDays() == null || !habit.getDays().containsValue(true)) {
+            return true;
+        }
+
         String[] keys = {"sun", "mon", "tue", "wed", "thu", "fri", "sat"};
         int dayOfWeek = cal.get(Calendar.DAY_OF_WEEK);
         String key = keys[dayOfWeek - 1];
-        return habit.getDays() != null && habit.getDays().getOrDefault(key, false);
+        return habit.getDays().getOrDefault(key, false);
     }
 }

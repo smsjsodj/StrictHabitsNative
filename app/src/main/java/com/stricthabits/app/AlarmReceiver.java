@@ -29,7 +29,7 @@ public class AlarmReceiver extends BroadcastReceiver {
                 }
             }
             // Планируем следующий запуск
-            HabitScheduler.schedule(context, habit);
+            HabitScheduler.scheduleNext(context, habit);
         }
     }
 
@@ -86,6 +86,6 @@ public class AlarmReceiver extends BroadcastReceiver {
             default: return false;
         }
         Map<String, Boolean> days = habit.getDays();
-        return days != null && days.getOrDefault(dayKey, false);
+        return days == null || !days.containsValue(true) || days.getOrDefault(dayKey, false);
     }
 }
