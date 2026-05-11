@@ -51,7 +51,11 @@ public class HabitAdapter extends RecyclerView.Adapter<HabitAdapter.ViewHolder> 
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
         Habit h = habits.get(position);
         holder.habitName.setText(h.getName());
-        holder.habitDetails.setText(h.getTime() + "  " + getDaysString(h.getDays()));
+        holder.habitDetails.setText(h.getTime()
+                + "  "
+                + getDaysString(h.getDays())
+                + "  |  выполнено: "
+                + h.getCompletedCount());
 
         if (!h.isEnabled()) {
             holder.habitStatus.setText("ОТКЛЮЧЕНО");

@@ -33,6 +33,7 @@ import java.net.URL;
 
 public class LockService extends Service {
     private static final String CHANNEL_ID = "HabitLockChannel";
+    public static final String ACTION_HABITS_UPDATED = "com.stricthabits.app.HABITS_UPDATED";
     public static final String EXTRA_UNLOCK_MODE = "unlock_mode";
     public static final String EXTRA_LOCK_KIND = "lock_kind";
     public static final String LOCK_KIND_HABIT = "habit";
@@ -359,6 +360,10 @@ public class LockService extends Service {
             for (int i = 0; i < arr.length(); i++) {
                 JSONObject obj = arr.getJSONObject(i);
                 if (name.equals(obj.optString("name", ""))) {
+                    String previousDate = obj.optString("lastCompletedDate", "");
+                    if (!today.equals(previousDate)) {
+                        obj.put("completedCount", obj.optInt("completedCount", 0) + 1);
+                    }
                     obj.put("lastCompletedDate", today);
                     obj.put("skippedDate", "");
                     changed = true;
@@ -368,6 +373,7 @@ public class LockService extends Service {
 
             if (changed) {
                 prefs.edit().putString("list", arr.toString()).apply();
+                sendBroadcast(new Intent(ACTION_HABITS_UPDATED).setPackage(getPackageName()));
             }
         } catch (Exception e) {
             e.printStackTrace();

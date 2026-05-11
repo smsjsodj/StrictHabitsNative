@@ -3,8 +3,10 @@ package com.stricthabits.app;
 import android.app.AlarmManager;
 import android.app.AlertDialog;
 import android.app.TimePickerDialog;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.net.Uri;
 import android.os.Build;
@@ -33,6 +35,12 @@ public class MainActivity extends AppCompatActivity {
     private HabitAdapter adapter;
     private final List<Habit> habitList = new ArrayList<>();
     private SharedPreferences prefs;
+    private final BroadcastReceiver habitsUpdatedReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            refreshHabits();
+        }
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -52,6 +60,7 @@ public class MainActivity extends AppCompatActivity {
                 this::toggleHabit,
                 this::setCompleted);
         recyclerView.setAdapter(adapter);
+        registerHabitsUpdatedReceiver();
 
         findViewById(R.id.btnFocusLock).setOnClickListener(v -> startFocusLock());
         findViewById(R.id.btnTelegram).setOnClickListener(v -> showTelegramDialog());
@@ -69,9 +78,14 @@ public class MainActivity extends AppCompatActivity {
         super.onResume();
         updateOverlayButton();
         if (adapter != null) {
-            loadHabits();
-            adapter.notifyDataSetChanged();
+            refreshHabits();
         }
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        unregisterReceiver(habitsUpdatedReceiver);
     }
 
     private void startFocusLock() {
@@ -174,6 +188,7 @@ public class MainActivity extends AppCompatActivity {
                         HabitScheduler.cancel(this, old);
                         habit.setEnabled(old.isEnabled());
                         habit.setLastCompletedDate(old.getLastCompletedDate());
+                        habit.setCompletedCount(old.getCompletedCount());
                         habit.setSkippedDate(old.getSkippedDate());
                         habitList.set(position, habit);
                         adapter.notifyItemChanged(position);
@@ -219,8 +234,14 @@ public class MainActivity extends AppCompatActivity {
 
     private void setCompleted(int position, boolean completed) {
         Habit habit = habitList.get(position);
+        boolean wasCompletedToday = today().equals(habit.getLastCompletedDate());
         habit.setCompletedToday(completed);
         habit.setLastCompletedDate(completed ? today() : "");
+        if (completed && !wasCompletedToday) {
+            habit.setCompletedCount(habit.getCompletedCount() + 1);
+        } else if (!completed && wasCompletedToday) {
+            habit.setCompletedCount(habit.getCompletedCount() - 1);
+        }
         saveHabits();
         adapter.notifyItemChanged(position);
         Toast.makeText(this, completed ? "Выполнено" : "Снято выполнение", Toast.LENGTH_SHORT).show();
@@ -253,6 +274,7 @@ public class MainActivity extends AppCompatActivity {
                 String lastDate = obj.optString("lastCompletedDate", "");
                 habit.setCompletedToday(today().equals(lastDate));
                 habit.setLastCompletedDate(lastDate);
+                habit.setCompletedCount(obj.optInt("completedCount", 0));
                 habit.setEnabled(obj.optBoolean("enabled", true));
                 String skippedDate = obj.optString("skippedDate", "");
                 habit.setSkippedDate(today().equals(skippedDate) ? skippedDate : "");
@@ -272,6 +294,7 @@ public class MainActivity extends AppCompatActivity {
                 obj.put("time", h.getTime());
                 obj.put("soundEnabled", h.isSoundEnabled());
                 obj.put("lastCompletedDate", h.getLastCompletedDate());
+                obj.put("completedCount", h.getCompletedCount());
                 obj.put("skippedDate", h.getSkippedDate());
                 obj.put("enabled", h.isEnabled());
                 JSONObject daysObj = new JSONObject();
@@ -367,6 +390,22 @@ public class MainActivity extends AppCompatActivity {
                 && checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS)
                 != android.content.pm.PackageManager.PERMISSION_GRANTED) {
             requestPermissions(new String[]{android.Manifest.permission.POST_NOTIFICATIONS}, 1);
+        }
+    }
+
+    private void refreshHabits() {
+        loadHabits();
+        if (adapter != null) {
+            adapter.notifyDataSetChanged();
+        }
+    }
+
+    private void registerHabitsUpdatedReceiver() {
+        IntentFilter filter = new IntentFilter(LockService.ACTION_HABITS_UPDATED);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(habitsUpdatedReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
+        } else {
+            registerReceiver(habitsUpdatedReceiver, filter);
         }
     }
 }
