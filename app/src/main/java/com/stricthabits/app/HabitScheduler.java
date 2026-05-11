@@ -6,21 +6,60 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.Build;
 import java.util.Calendar;
-import java.util.Locale;
 
 public class HabitScheduler {
     public static void schedule(Context context, Habit habit) {
         AlarmManager alarmManager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
+        if (alarmManager == null || habit == null || !hasEnabledDay(habit)) {
+            return;
+        }
+
         Intent intent = new Intent(context, AlarmReceiver.class);
         intent.putExtra("habit_name", habit.getName());
         intent.putExtra("habit_time", habit.getTime());
         intent.putExtra("sound_enabled", habit.isSoundEnabled());
 
+        int requestCode = getRequestCode(habit);
         PendingIntent pendingIntent = PendingIntent.getBroadcast(context,
-                habit.getName().hashCode(),
+                requestCode,
                 intent,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
+        Calendar calendar = getNextTriggerTime(habit);
+        if (calendar == null) {
+            alarmManager.cancel(pendingIntent);
+            return;
+        }
+
+        long triggerAtMillis = calendar.getTimeInMillis();
+        alarmManager.cancel(pendingIntent);
+
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && canUseExactAlarm(alarmManager)) {
+                alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP,
+                        triggerAtMillis, pendingIntent);
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                alarmManager.setAlarmClock(createAlarmClockInfo(context, requestCode, triggerAtMillis),
+                        pendingIntent);
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+                alarmManager.setExact(AlarmManager.RTC_WAKEUP,
+                        triggerAtMillis, pendingIntent);
+            } else {
+                alarmManager.set(AlarmManager.RTC_WAKEUP,
+                        triggerAtMillis, pendingIntent);
+            }
+        } catch (SecurityException e) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                alarmManager.setAlarmClock(createAlarmClockInfo(context, requestCode, triggerAtMillis),
+                        pendingIntent);
+            } else {
+                alarmManager.set(AlarmManager.RTC_WAKEUP,
+                        triggerAtMillis, pendingIntent);
+            }
+        }
+    }
+
+    private static Calendar getNextTriggerTime(Habit habit) {
         String[] parts = habit.getTime().split(":");
         int hour = Integer.parseInt(parts[0]);
         int minute = Integer.parseInt(parts[1]);
@@ -31,37 +70,40 @@ public class HabitScheduler {
         calendar.set(Calendar.SECOND, 0);
         calendar.set(Calendar.MILLISECOND, 0);
 
-        // Ищем ближайший активный день
-        int attempts = 0;
-        while (attempts < 8) {
-            if (calendar.getTimeInMillis() > System.currentTimeMillis() && isDayEnabled(habit, calendar)) {
-                break;
+        long now = System.currentTimeMillis();
+        for (int attempts = 0; attempts < 8; attempts++) {
+            if (calendar.getTimeInMillis() > now && isDayEnabled(habit, calendar)) {
+                return calendar;
             }
             calendar.add(Calendar.DAY_OF_YEAR, 1);
-            attempts++;
         }
+        return null;
+    }
 
-        try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                AlarmManager.AlarmClockInfo info = new AlarmManager.AlarmClockInfo(
-                        calendar.getTimeInMillis(), pendingIntent);
-                alarmManager.setAlarmClock(info, pendingIntent);
-            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP,
-                        calendar.getTimeInMillis(), pendingIntent);
-            } else {
-                alarmManager.setExact(AlarmManager.RTC_WAKEUP,
-                        calendar.getTimeInMillis(), pendingIntent);
-            }
-        } catch (SecurityException e) {
-            alarmManager.set(AlarmManager.RTC_WAKEUP,
-                    calendar.getTimeInMillis(), pendingIntent);
-        }
+    private static AlarmManager.AlarmClockInfo createAlarmClockInfo(
+            Context context, int requestCode, long triggerAtMillis) {
+        Intent showIntent = new Intent(context, MainActivity.class);
+        PendingIntent pendingShowIntent = PendingIntent.getActivity(context,
+                requestCode, showIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        return new AlarmManager.AlarmClockInfo(triggerAtMillis, pendingShowIntent);
+    }
+
+    private static boolean canUseExactAlarm(AlarmManager alarmManager) {
+        return Build.VERSION.SDK_INT < Build.VERSION_CODES.S || alarmManager.canScheduleExactAlarms();
+    }
+
+    private static boolean hasEnabledDay(Habit habit) {
+        return habit.getDays() != null && habit.getDays().containsValue(true);
+    }
+
+    private static int getRequestCode(Habit habit) {
+        return (habit.getName() + "|" + habit.getTime()).hashCode();
     }
 
     private static boolean isDayEnabled(Habit habit, Calendar cal) {
         String[] keys = {"sun", "mon", "tue", "wed", "thu", "fri", "sat"};
-        int dayOfWeek = cal.get(Calendar.DAY_OF_WEEK); // 1 = Sunday, 2 = Monday...
+        int dayOfWeek = cal.get(Calendar.DAY_OF_WEEK);
         String key = keys[dayOfWeek - 1];
         return habit.getDays() != null && habit.getDays().getOrDefault(key, false);
     }

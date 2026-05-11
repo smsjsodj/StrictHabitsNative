@@ -16,14 +16,15 @@ import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
-import android.widget.Toast;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.media.AudioAttributes;
 import android.media.Ringtone;
 import android.media.RingtoneManager;
 import android.net.Uri;
+import android.widget.Toast;
 
 public class LockService extends Service {
     private WindowManager windowManager;
@@ -39,6 +40,10 @@ public class LockService extends Service {
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         if (intent != null) {
+            if ("ACTION_STOP".equals(intent.getAction())) {
+                unlock();
+                return START_NOT_STICKY;
+            }
             habitName = intent.getStringExtra("habit_name");
             habitTime = intent.getStringExtra("habit_time");
             soundEnabled = intent.getBooleanExtra("sound_enabled", true);
@@ -62,14 +67,20 @@ public class LockService extends Service {
     }
 
     private Notification createNotification() {
+        Intent stopIntent = new Intent(this, LockService.class);
+        stopIntent.setAction("ACTION_STOP");
+        PendingIntent pendingStop = PendingIntent.getService(this, 0, stopIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             return new Notification.Builder(this, CHANNEL_ID)
                     .setContentTitle("Strict Habit")
                     .setContentText("Пора выполнить: " + habitName)
                     .setSmallIcon(android.R.drawable.ic_lock_idle_lock)
+                    .addAction(android.R.drawable.ic_menu_close_clear_cancel, "ОСТАНОВИТЬ", pendingStop)
                     .build();
         } else {
-            return new Notification();
+            return new Notification(); // Должно быть реализовано для старых версий, но API 24+ обычно поддерживает билдер
         }
     }
 
@@ -109,7 +120,18 @@ public class LockService extends Service {
                 WindowManager.LayoutParams.MATCH_PARENT,
                 type, flags, PixelFormat.TRANSLUCENT);
         params.gravity = Gravity.TOP;
-        windowManager.addView(overlayView, params);
+
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !android.provider.Settings.canDrawOverlays(this)) {
+                // Если нет прав на оверлей, просто показываем тост (звук все равно будет играть)
+                Toast.makeText(this, "Пора выполнить: " + habitName + " (нет прав на оверлей)", Toast.LENGTH_LONG).show();
+            } else {
+                windowManager.addView(overlayView, params);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            Toast.makeText(this, "Пора выполнить: " + habitName, Toast.LENGTH_LONG).show();
+        }
     }
 
     private void startSoundLoop() {
