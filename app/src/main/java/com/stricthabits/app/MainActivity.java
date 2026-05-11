@@ -68,6 +68,10 @@ public class MainActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         updateOverlayButton();
+        if (adapter != null) {
+            loadHabits();
+            adapter.notifyDataSetChanged();
+        }
     }
 
     private void startFocusLock() {
@@ -87,6 +91,7 @@ public class MainActivity extends AppCompatActivity {
         intent.putExtra("habit_name", "Фокус");
         intent.putExtra("habit_time", "Жду /unlock в Telegram");
         intent.putExtra("sound_enabled", false);
+        intent.putExtra(LockService.EXTRA_LOCK_KIND, LockService.LOCK_KIND_FOCUS);
         intent.putExtra(LockService.EXTRA_UNLOCK_MODE, LockService.UNLOCK_MODE_TELEGRAM);
         startLockService(intent);
     }

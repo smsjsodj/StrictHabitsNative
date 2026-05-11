@@ -25,6 +25,8 @@ public class AlarmReceiver extends BroadcastReceiver {
                 serviceIntent.putExtra("habit_name", habit.getName());
                 serviceIntent.putExtra("habit_time", habit.getTime());
                 serviceIntent.putExtra("sound_enabled", habit.isSoundEnabled());
+                serviceIntent.putExtra(LockService.EXTRA_LOCK_KIND, LockService.LOCK_KIND_HABIT);
+                serviceIntent.putExtra(LockService.EXTRA_UNLOCK_MODE, LockService.UNLOCK_MODE_PHRASE);
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                     context.startForegroundService(serviceIntent);
                 } else {

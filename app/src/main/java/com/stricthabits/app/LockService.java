@@ -34,6 +34,9 @@ import java.net.URL;
 public class LockService extends Service {
     private static final String CHANNEL_ID = "HabitLockChannel";
     public static final String EXTRA_UNLOCK_MODE = "unlock_mode";
+    public static final String EXTRA_LOCK_KIND = "lock_kind";
+    public static final String LOCK_KIND_HABIT = "habit";
+    public static final String LOCK_KIND_FOCUS = "focus";
     public static final String UNLOCK_MODE_PHRASE = "phrase";
     public static final String UNLOCK_MODE_TELEGRAM = "telegram";
 
@@ -45,21 +48,32 @@ public class LockService extends Service {
     private Ringtone ringtone;
     private String habitName;
     private String habitTime;
+    private String lockKind = LOCK_KIND_HABIT;
     private String unlockMode = UNLOCK_MODE_PHRASE;
     private boolean soundEnabled;
     private boolean isUnlocked = false;
     private boolean telegramReadyForUnlock = false;
+    private boolean overlayAdded = false;
     private int lastTelegramUpdateId = 0;
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+        if (isLockActive()) {
+            handleIncomingWhileLocked(intent);
+            return START_STICKY;
+        }
+
         if (intent != null) {
             habitName = intent.getStringExtra("habit_name");
             habitTime = intent.getStringExtra("habit_time");
+            lockKind = intent.getStringExtra(EXTRA_LOCK_KIND);
+            if (lockKind == null) lockKind = LOCK_KIND_HABIT;
             unlockMode = intent.getStringExtra(EXTRA_UNLOCK_MODE);
             if (unlockMode == null) unlockMode = UNLOCK_MODE_PHRASE;
             soundEnabled = intent.getBooleanExtra("sound_enabled", true);
         }
+        isUnlocked = false;
+        telegramReadyForUnlock = false;
 
         createNotificationChannel();
         startForeground(1, createNotification());
@@ -152,12 +166,31 @@ public class LockService extends Service {
                         Toast.LENGTH_LONG).show();
             } else {
                 windowManager.addView(overlayView, params);
+                overlayAdded = true;
             }
         } catch (Exception e) {
             e.printStackTrace();
             Toast.makeText(this,
                     "\u041f\u043e\u0440\u0430 \u0432\u044b\u043f\u043e\u043b\u043d\u0438\u0442\u044c: " + habitName,
                     Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private boolean isLockActive() {
+        return overlayView != null && !isUnlocked;
+    }
+
+    private void handleIncomingWhileLocked(Intent intent) {
+        if (intent == null) return;
+
+        String incomingKind = intent.getStringExtra(EXTRA_LOCK_KIND);
+        if (incomingKind == null) incomingKind = LOCK_KIND_HABIT;
+
+        if (LOCK_KIND_HABIT.equals(incomingKind)) {
+            String incomingHabitName = intent.getStringExtra("habit_name");
+            if (incomingHabitName != null) {
+                markHabitCompleted(incomingHabitName);
+            }
         }
     }
 
@@ -297,20 +330,55 @@ public class LockService extends Service {
 
     private void unlock() {
         isUnlocked = true;
+        if (LOCK_KIND_HABIT.equals(lockKind)) {
+            markHabitCompleted(habitName);
+        }
         stopSoundLoop();
-        if (overlayView != null && windowManager != null) {
+        removeOverlay();
+        stopSelf();
+    }
+
+    private void removeOverlay() {
+        if (overlayView != null && windowManager != null && overlayAdded) {
             windowManager.removeView(overlayView);
         }
-        stopSelf();
+        overlayAdded = false;
+        overlayView = null;
+    }
+
+    private void markHabitCompleted(String name) {
+        if (name == null || name.isEmpty()) return;
+
+        SharedPreferences prefs = getSharedPreferences("habits", MODE_PRIVATE);
+        try {
+            JSONArray arr = new JSONArray(prefs.getString("list", "[]"));
+            String today = new java.text.SimpleDateFormat(
+                    "yyyy-MM-dd", java.util.Locale.getDefault()).format(new java.util.Date());
+
+            boolean changed = false;
+            for (int i = 0; i < arr.length(); i++) {
+                JSONObject obj = arr.getJSONObject(i);
+                if (name.equals(obj.optString("name", ""))) {
+                    obj.put("lastCompletedDate", today);
+                    obj.put("skippedDate", "");
+                    changed = true;
+                    break;
+                }
+            }
+
+            if (changed) {
+                prefs.edit().putString("list", arr.toString()).apply();
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     @Override
     public void onDestroy() {
         super.onDestroy();
         stopSoundLoop();
-        if (overlayView != null && windowManager != null) {
-            windowManager.removeView(overlayView);
-        }
+        removeOverlay();
     }
 
     @Override
