@@ -6,16 +6,24 @@
     android:padding="16dp">
 
     <EditText
+        android:id="@+id/botToken"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Bot token"
+        android:inputType="textPassword"/>
+
+    <EditText
         android:id="@+id/chatId"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="Введите Chat ID из Telegram"
-        android:inputType="number"/>
+        android:layout_marginTop="8dp"
+        android:hint="Telegram Chat ID"
+        android:inputType="numberSigned"/>
 
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Как получить Chat ID:\n1. Напиши @StrictHabitsBot\n2. Отправь /start\n3. Скопируй число"
+        android:text="Напиши боту /start, сохрани chat id, потом фокус-режим будет ждать команду /unlock."
         android:textSize="12sp"
         android:layout_marginTop="8dp"/>
 

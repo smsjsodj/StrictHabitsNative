@@ -16,9 +16,25 @@
         android:layout_marginBottom="16dp"/>
 
     <Button
+        android:id="@+id/btnFocusLock"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="ФОКУС-БЛОКИРОВКА"
+        android:backgroundTint="#1976D2"
+        android:textColor="#FFFFFF"/>
+
+    <Button
+        android:id="@+id/btnTelegram"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="Telegram разблокировка"/>
+
+    <Button
         android:id="@+id/btnAddHabit"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
         android:text="+ Новая привычка"/>
 
     <Button

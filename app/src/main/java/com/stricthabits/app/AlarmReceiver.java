@@ -4,7 +4,10 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Build;
+import java.text.SimpleDateFormat;
 import java.util.Calendar;
+import java.util.Date;
+import java.util.Locale;
 import java.util.Map;
 
 public class AlarmReceiver extends BroadcastReceiver {
@@ -17,7 +20,7 @@ public class AlarmReceiver extends BroadcastReceiver {
         // Загрузить привычку из SharedPreferences, чтобы получить дни недели
         Habit habit = findHabitByName(context, habitName);
         if (habit != null) {
-            if (shouldRunToday(habit)) {
+            if (habit.isEnabled() && !isSkippedToday(habit) && shouldRunToday(habit)) {
                 Intent serviceIntent = new Intent(context, LockService.class);
                 serviceIntent.putExtra("habit_name", habit.getName());
                 serviceIntent.putExtra("habit_time", habit.getTime());
@@ -43,13 +46,18 @@ public class AlarmReceiver extends BroadcastReceiver {
                 if (obj.getString("name").equals(name)) {
                     String time = obj.getString("time");
                     boolean sound = obj.getBoolean("soundEnabled");
+                    boolean enabled = obj.optBoolean("enabled", true);
+                    String skippedDate = obj.optString("skippedDate", "");
                     java.util.Map<String, Boolean> days = new java.util.HashMap<>();
                     org.json.JSONObject daysObj = obj.getJSONObject("days");
                     String[] dayKeys = {"mon","tue","wed","thu","fri","sat","sun"};
                     for (String key : dayKeys) {
                         days.put(key, daysObj.optBoolean(key, false));
                     }
-                    return new Habit(name, time, sound, days);
+                    Habit habit = new Habit(name, time, sound, days);
+                    habit.setEnabled(enabled);
+                    habit.setSkippedDate(skippedDate);
+                    return habit;
                 }
             }
         } catch (Exception e) { e.printStackTrace(); }
@@ -87,5 +95,10 @@ public class AlarmReceiver extends BroadcastReceiver {
         }
         Map<String, Boolean> days = habit.getDays();
         return days == null || !days.containsValue(true) || days.getOrDefault(dayKey, false);
+    }
+
+    private boolean isSkippedToday(Habit habit) {
+        String today = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(new Date());
+        return today.equals(habit.getSkippedDate());
     }
 }

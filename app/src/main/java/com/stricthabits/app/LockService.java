@@ -5,6 +5,7 @@ import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.Service;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.graphics.PixelFormat;
 import android.media.AudioAttributes;
 import android.media.Ringtone;
@@ -23,25 +24,40 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
+import org.json.JSONArray;
+import org.json.JSONObject;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
 
 public class LockService extends Service {
     private static final String CHANNEL_ID = "HabitLockChannel";
+    public static final String EXTRA_UNLOCK_MODE = "unlock_mode";
+    public static final String UNLOCK_MODE_PHRASE = "phrase";
+    public static final String UNLOCK_MODE_TELEGRAM = "telegram";
 
     private WindowManager windowManager;
     private View overlayView;
     private final Handler handler = new Handler();
     private Runnable soundRunnable;
+    private Runnable telegramRunnable;
     private Ringtone ringtone;
     private String habitName;
     private String habitTime;
+    private String unlockMode = UNLOCK_MODE_PHRASE;
     private boolean soundEnabled;
     private boolean isUnlocked = false;
+    private boolean telegramReadyForUnlock = false;
+    private int lastTelegramUpdateId = 0;
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         if (intent != null) {
             habitName = intent.getStringExtra("habit_name");
             habitTime = intent.getStringExtra("habit_time");
+            unlockMode = intent.getStringExtra(EXTRA_UNLOCK_MODE);
+            if (unlockMode == null) unlockMode = UNLOCK_MODE_PHRASE;
             soundEnabled = intent.getBooleanExtra("sound_enabled", true);
         }
 
@@ -50,6 +66,7 @@ public class LockService extends Service {
 
         showOverlay();
         if (soundEnabled) startSoundLoop();
+        if (UNLOCK_MODE_TELEGRAM.equals(unlockMode)) startTelegramUnlockPolling();
         return START_STICKY;
     }
 
@@ -66,14 +83,14 @@ public class LockService extends Service {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             return new Notification.Builder(this, CHANNEL_ID)
                     .setContentTitle("Strict Habit")
-                    .setContentText("\u041f\u043e\u0440\u0430 \u0432\u044b\u043f\u043e\u043b\u043d\u0438\u0442\u044c: " + habitName)
+                    .setContentText(getNotificationText())
                     .setSmallIcon(android.R.drawable.ic_lock_idle_lock)
                     .setOngoing(true)
                     .build();
         } else {
             return new Notification.Builder(this)
                     .setContentTitle("Strict Habit")
-                    .setContentText("\u041f\u043e\u0440\u0430 \u0432\u044b\u043f\u043e\u043b\u043d\u0438\u0442\u044c: " + habitName)
+                    .setContentText(getNotificationText())
                     .setSmallIcon(android.R.drawable.ic_lock_idle_lock)
                     .setOngoing(true)
                     .build();
@@ -92,6 +109,12 @@ public class LockService extends Service {
 
         tvName.setText(habitName);
         tvTime.setText(habitTime);
+
+        if (UNLOCK_MODE_TELEGRAM.equals(unlockMode)) {
+            tvTime.setText("Telegram: /unlock");
+            etConfirm.setVisibility(View.GONE);
+            btnUnlock.setVisibility(View.GONE);
+        }
 
         btnUnlock.setOnClickListener(v -> {
             String text = etConfirm.getText().toString().trim();
@@ -151,6 +174,75 @@ public class LockService extends Service {
         handler.post(soundRunnable);
     }
 
+    private void startTelegramUnlockPolling() {
+        telegramRunnable = new Runnable() {
+            @Override
+            public void run() {
+                if (!isUnlocked) {
+                    pollTelegramUnlock(telegramReadyForUnlock);
+                    telegramReadyForUnlock = true;
+                    handler.postDelayed(this, 3000);
+                }
+            }
+        };
+        handler.post(telegramRunnable);
+    }
+
+    private void pollTelegramUnlock(boolean allowUnlock) {
+        SharedPreferences prefs = getSharedPreferences("habits", MODE_PRIVATE);
+        String botToken = prefs.getString("telegram_bot_token", "");
+        String chatId = prefs.getString("telegram_chat_id", "");
+        if (botToken.isEmpty() || chatId.isEmpty()) {
+            return;
+        }
+
+        new Thread(() -> {
+            HttpURLConnection conn = null;
+            try {
+                String urlText = "https://api.telegram.org/bot" + botToken
+                        + "/getUpdates?offset=" + (lastTelegramUpdateId + 1) + "&timeout=0";
+                URL url = new URL(urlText);
+                conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("GET");
+                conn.setConnectTimeout(5000);
+                conn.setReadTimeout(5000);
+
+                BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+                StringBuilder sb = new StringBuilder();
+                String line;
+                while ((line = reader.readLine()) != null) sb.append(line);
+                reader.close();
+
+                JSONObject response = new JSONObject(sb.toString());
+                if (!response.optBoolean("ok", false)) return;
+
+                JSONArray updates = response.optJSONArray("result");
+                if (updates == null) return;
+
+                for (int i = 0; i < updates.length(); i++) {
+                    JSONObject update = updates.getJSONObject(i);
+                    lastTelegramUpdateId = Math.max(lastTelegramUpdateId, update.optInt("update_id", 0));
+                    JSONObject message = update.optJSONObject("message");
+                    if (message == null) continue;
+
+                    JSONObject chat = message.optJSONObject("chat");
+                    String text = message.optString("text", "").trim();
+                    if (chat != null
+                            && chatId.equals(String.valueOf(chat.optLong("id")))
+                            && "/unlock".equalsIgnoreCase(text)
+                            && allowUnlock) {
+                        handler.post(() -> unlock());
+                        return;
+                    }
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            } finally {
+                if (conn != null) conn.disconnect();
+            }
+        }).start();
+    }
+
     private void playSound() {
         try {
             if (ringtone != null && ringtone.isPlaying()) return;
@@ -190,9 +282,17 @@ public class LockService extends Service {
 
     private void stopSoundLoop() {
         if (soundRunnable != null) handler.removeCallbacks(soundRunnable);
+        if (telegramRunnable != null) handler.removeCallbacks(telegramRunnable);
         if (ringtone != null && ringtone.isPlaying()) {
             ringtone.stop();
         }
+    }
+
+    private String getNotificationText() {
+        if (UNLOCK_MODE_TELEGRAM.equals(unlockMode)) {
+            return "\u0424\u043e\u043a\u0443\u0441-\u0440\u0435\u0436\u0438\u043c. \u0416\u0434\u0443 /unlock \u0432 Telegram";
+        }
+        return "\u041f\u043e\u0440\u0430 \u0432\u044b\u043f\u043e\u043b\u043d\u0438\u0442\u044c: " + habitName;
     }
 
     private void unlock() {

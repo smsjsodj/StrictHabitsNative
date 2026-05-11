@@ -5,9 +5,25 @@ import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Build;
+import java.text.SimpleDateFormat;
 import java.util.Calendar;
+import java.util.Date;
+import java.util.Locale;
 
 public class HabitScheduler {
+    public static void cancel(Context context, Habit habit) {
+        AlarmManager alarmManager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
+        if (alarmManager == null || habit == null) {
+            return;
+        }
+        Intent intent = new Intent(context, AlarmReceiver.class);
+        PendingIntent pendingIntent = PendingIntent.getBroadcast(context,
+                getRequestCode(habit),
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        alarmManager.cancel(pendingIntent);
+    }
+
     public static void schedule(Context context, Habit habit) {
         schedule(context, habit, true);
     }
@@ -32,6 +48,11 @@ public class HabitScheduler {
                 requestCode,
                 intent,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+
+        if (!habit.isEnabled() || isSkippedToday(habit)) {
+            alarmManager.cancel(pendingIntent);
+            return;
+        }
 
         Calendar calendar = getNextTriggerTime(habit, allowCurrentMinute);
         if (calendar == null) {
@@ -114,6 +135,11 @@ public class HabitScheduler {
                 && first.get(Calendar.DAY_OF_YEAR) == second.get(Calendar.DAY_OF_YEAR)
                 && first.get(Calendar.HOUR_OF_DAY) == second.get(Calendar.HOUR_OF_DAY)
                 && first.get(Calendar.MINUTE) == second.get(Calendar.MINUTE);
+    }
+
+    private static boolean isSkippedToday(Habit habit) {
+        String today = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(new Date());
+        return today.equals(habit.getSkippedDate());
     }
 
     private static int getRequestCode(Habit habit) {

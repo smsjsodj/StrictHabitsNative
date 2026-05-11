@@ -29,10 +29,9 @@ import java.util.Locale;
 import java.util.Map;
 
 public class MainActivity extends AppCompatActivity {
-
     private RecyclerView recyclerView;
     private HabitAdapter adapter;
-    private List<Habit> habitList = new ArrayList<>();
+    private final List<Habit> habitList = new ArrayList<>();
     private SharedPreferences prefs;
 
     @Override
@@ -47,77 +46,84 @@ public class MainActivity extends AppCompatActivity {
         recyclerView = findViewById(R.id.habitsRecycler);
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
         adapter = new HabitAdapter(habitList,
-                position -> deleteHabit(position),
-                habit -> testHabit(habit),
-                (position, completed) -> {
-                    Habit h = habitList.get(position);
-                    h.setCompletedToday(completed);
-                    if (completed) {
-                        h.setLastCompletedDate(new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(new Date()));
-                    } else {
-                        h.setLastCompletedDate("");
-                    }
-                    saveHabits();
-                    adapter.notifyItemChanged(position);
-                    Toast.makeText(this, completed ? "Выполнено!" : "Отмечено как невыполненное", Toast.LENGTH_SHORT).show();
-                });
+                this::deleteHabit,
+                this::showEditDialog,
+                this::skipToday,
+                this::toggleHabit,
+                this::setCompleted);
         recyclerView.setAdapter(adapter);
 
-        findViewById(R.id.btnAddHabit).setOnClickListener(v -> showAddDialog());
+        findViewById(R.id.btnFocusLock).setOnClickListener(v -> startFocusLock());
+        findViewById(R.id.btnTelegram).setOnClickListener(v -> showTelegramDialog());
+        findViewById(R.id.btnAddHabit).setOnClickListener(v -> showHabitDialog(-1));
+
         View btnOverlay = findViewById(R.id.btnRequestOverlay);
         btnOverlay.setOnClickListener(v -> requestOverlayPermission());
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
-            btnOverlay.setVisibility(View.VISIBLE);
-            requestOverlayPermission();
-        } else {
-            btnOverlay.setVisibility(View.GONE);
-        }
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            AlarmManager alarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
-            if (!alarmManager.canScheduleExactAlarms()) {
-                Intent intent = new Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM);
-                startActivity(intent);
-            }
-        }
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            if (checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
-                requestPermissions(new String[]{android.Manifest.permission.POST_NOTIFICATIONS}, 1);
-            }
-        }
+        updateOverlayButton();
+        requestExactAlarmPermission();
+        requestNotificationPermission();
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        View btnOverlay = findViewById(R.id.btnRequestOverlay);
-        if (btnOverlay != null) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && Settings.canDrawOverlays(this)) {
-                btnOverlay.setVisibility(View.GONE);
-            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                btnOverlay.setVisibility(View.VISIBLE);
-            }
-        }
+        updateOverlayButton();
     }
 
-    private void requestOverlayPermission() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            Intent intent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                    Uri.parse("package:" + getPackageName()));
-            startActivity(intent);
+    private void startFocusLock() {
+        if (!hasTelegramSettings()) {
+            Toast.makeText(this, "Сначала сохрани Telegram token и chat id", Toast.LENGTH_LONG).show();
+            showTelegramDialog();
+            return;
         }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
+            Toast.makeText(this, "Для фокус-блокировки нужно разрешение поверх окон", Toast.LENGTH_LONG).show();
+            requestOverlayPermission();
+            return;
+        }
+
+        Intent intent = new Intent(this, LockService.class);
+        intent.putExtra("habit_name", "Фокус");
+        intent.putExtra("habit_time", "Жду /unlock в Telegram");
+        intent.putExtra("sound_enabled", false);
+        intent.putExtra(LockService.EXTRA_UNLOCK_MODE, LockService.UNLOCK_MODE_TELEGRAM);
+        startLockService(intent);
     }
 
-    private void showAddDialog() {
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+    private void showTelegramDialog() {
+        View view = getLayoutInflater().inflate(R.layout.dialog_telegram, null);
+        EditText etToken = view.findViewById(R.id.botToken);
+        EditText etChatId = view.findViewById(R.id.chatId);
+        etToken.setText(prefs.getString("telegram_bot_token", ""));
+        etChatId.setText(prefs.getString("telegram_chat_id", ""));
+
+        new AlertDialog.Builder(this)
+                .setTitle("Telegram")
+                .setView(view)
+                .setPositiveButton("Сохранить", (dialog, which) -> {
+                    prefs.edit()
+                            .putString("telegram_bot_token", etToken.getText().toString().trim())
+                            .putString("telegram_chat_id", etChatId.getText().toString().trim())
+                            .apply();
+                    Toast.makeText(this, "Telegram сохранен", Toast.LENGTH_SHORT).show();
+                })
+                .setNegativeButton("Отмена", null)
+                .show();
+    }
+
+    private void showEditDialog(int position) {
+        showHabitDialog(position);
+    }
+
+    private void showHabitDialog(int position) {
+        boolean editing = position >= 0;
+        Habit existing = editing ? habitList.get(position) : null;
+
         View view = getLayoutInflater().inflate(R.layout.dialog_add_habit, null);
         EditText etName = view.findViewById(R.id.habitName);
         Button btnTime = view.findViewById(R.id.btnSelectTime);
         CheckBox chkSound = view.findViewById(R.id.chkSound);
-
-        // Дни недели
         CheckBox chkMon = view.findViewById(R.id.chkMon);
         CheckBox chkTue = view.findViewById(R.id.chkTue);
         CheckBox chkWed = view.findViewById(R.id.chkWed);
@@ -128,60 +134,91 @@ public class MainActivity extends AppCompatActivity {
 
         int[] hour = {12};
         int[] minute = {0};
-        btnTime.setText("12:00");
-        btnTime.setOnClickListener(v -> {
-            TimePickerDialog timePicker = new TimePickerDialog(this,
-                    (view1, hourOfDay, minuteOfHour) -> {
-                        hour[0] = hourOfDay;
-                        minute[0] = minuteOfHour;
-                        btnTime.setText(String.format("%02d:%02d", hour[0], minute[0]));
-                    }, hour[0], minute[0], true);
-            timePicker.show();
-        });
+        if (existing != null) {
+            etName.setText(existing.getName());
+            chkSound.setChecked(existing.isSoundEnabled());
+            setDayChecks(existing.getDays(), chkMon, chkTue, chkWed, chkThu, chkFri, chkSat, chkSun);
+            String[] parts = existing.getTime().split(":");
+            hour[0] = Integer.parseInt(parts[0]);
+            minute[0] = Integer.parseInt(parts[1]);
+        }
+        btnTime.setText(String.format(Locale.getDefault(), "%02d:%02d", hour[0], minute[0]));
+        btnTime.setOnClickListener(v -> new TimePickerDialog(this,
+                (view1, hourOfDay, minuteOfHour) -> {
+                    hour[0] = hourOfDay;
+                    minute[0] = minuteOfHour;
+                    btnTime.setText(String.format(Locale.getDefault(), "%02d:%02d", hour[0], minute[0]));
+                }, hour[0], minute[0], true).show());
 
-        builder.setTitle("Новая привычка")
+        new AlertDialog.Builder(this)
+                .setTitle(editing ? "Изменить привычку" : "Новая привычка")
                 .setView(view)
-                .setPositiveButton("Сохранить", (d, w) -> {
+                .setPositiveButton("Сохранить", (dialog, which) -> {
                     String name = etName.getText().toString().trim();
                     if (name.isEmpty()) {
-                        Toast.makeText(this, "Введите название", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(this, "Введи название", Toast.LENGTH_SHORT).show();
                         return;
                     }
-                    String time = String.format("%02d:%02d", hour[0], minute[0]);
-                    Map<String, Boolean> days = new HashMap<>();
-                    days.put("mon", chkMon.isChecked());
-                    days.put("tue", chkTue.isChecked());
-                    days.put("wed", chkWed.isChecked());
-                    days.put("thu", chkThu.isChecked());
-                    days.put("fri", chkFri.isChecked());
-                    days.put("sat", chkSat.isChecked());
-                    days.put("sun", chkSun.isChecked());
 
+                    String time = String.format(Locale.getDefault(), "%02d:%02d", hour[0], minute[0]);
+                    Map<String, Boolean> days = collectDays(chkMon, chkTue, chkWed, chkThu, chkFri, chkSat, chkSun);
                     Habit habit = new Habit(name, time, chkSound.isChecked(), days);
-                    habitList.add(habit);
+
+                    if (editing) {
+                        Habit old = habitList.get(position);
+                        HabitScheduler.cancel(this, old);
+                        habit.setEnabled(old.isEnabled());
+                        habit.setLastCompletedDate(old.getLastCompletedDate());
+                        habit.setSkippedDate(old.getSkippedDate());
+                        habitList.set(position, habit);
+                        adapter.notifyItemChanged(position);
+                    } else {
+                        habitList.add(habit);
+                        adapter.notifyItemInserted(habitList.size() - 1);
+                    }
                     saveHabits();
-                    adapter.notifyItemInserted(habitList.size() - 1);
                     HabitScheduler.schedule(this, habit);
                 })
+                .setNegativeButton("Отмена", null)
                 .show();
     }
 
     private void deleteHabit(int position) {
-        habitList.remove(position);
+        Habit habit = habitList.remove(position);
+        HabitScheduler.cancel(this, habit);
         saveHabits();
         adapter.notifyItemRemoved(position);
     }
 
-    private void testHabit(Habit habit) {
-        Intent intent = new Intent(this, LockService.class);
-        intent.putExtra("habit_name", habit.getName());
-        intent.putExtra("habit_time", habit.getTime());
-        intent.putExtra("sound_enabled", habit.isSoundEnabled());
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            startForegroundService(intent);
+    private void skipToday(int position) {
+        Habit habit = habitList.get(position);
+        habit.setSkippedDate(today());
+        HabitScheduler.cancel(this, habit);
+        saveHabits();
+        adapter.notifyItemChanged(position);
+        Toast.makeText(this, "Сегодня пропущено", Toast.LENGTH_SHORT).show();
+    }
+
+    private void toggleHabit(int position) {
+        Habit habit = habitList.get(position);
+        habit.setEnabled(!habit.isEnabled());
+        if (habit.isEnabled()) {
+            habit.setSkippedDate("");
+            HabitScheduler.schedule(this, habit);
         } else {
-            startService(intent);
+            HabitScheduler.cancel(this, habit);
         }
+        saveHabits();
+        adapter.notifyItemChanged(position);
+    }
+
+    private void setCompleted(int position, boolean completed) {
+        Habit habit = habitList.get(position);
+        habit.setCompletedToday(completed);
+        habit.setLastCompletedDate(completed ? today() : "");
+        saveHabits();
+        adapter.notifyItemChanged(position);
+        Toast.makeText(this, completed ? "Выполнено" : "Снято выполнение", Toast.LENGTH_SHORT).show();
     }
 
     private void loadHabits() {
@@ -191,34 +228,33 @@ public class MainActivity extends AppCompatActivity {
             habitList.clear();
             for (int i = 0; i < arr.length(); i++) {
                 JSONObject obj = arr.getJSONObject(i);
-                String name = obj.getString("name");
-                String time = obj.getString("time");
-                boolean sound = obj.getBoolean("soundEnabled");
-                String lastDate = obj.optString("lastCompletedDate", "");
-                
-                String today = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(new Date());
-                boolean completed = today.equals(lastDate);
-                
                 Map<String, Boolean> days = new HashMap<>();
-                JSONObject daysObj = obj.getJSONObject("days");
-                days.put("mon", daysObj.optBoolean("mon", false));
-                days.put("tue", daysObj.optBoolean("tue", false));
-                days.put("wed", daysObj.optBoolean("wed", false));
-                days.put("thu", daysObj.optBoolean("thu", false));
-                days.put("fri", daysObj.optBoolean("fri", false));
-                days.put("sat", daysObj.optBoolean("sat", false));
-                days.put("sun", daysObj.optBoolean("sun", false));
-                Habit h = new Habit(name, time, sound, days);
-                h.setCompletedToday(completed);
-                h.setLastCompletedDate(lastDate);
-                habitList.add(h);
-            }
-        } catch (Exception e) { e.printStackTrace(); }
-    }
+                JSONObject daysObj = obj.optJSONObject("days");
+                if (daysObj != null) {
+                    days.put("mon", daysObj.optBoolean("mon", false));
+                    days.put("tue", daysObj.optBoolean("tue", false));
+                    days.put("wed", daysObj.optBoolean("wed", false));
+                    days.put("thu", daysObj.optBoolean("thu", false));
+                    days.put("fri", daysObj.optBoolean("fri", false));
+                    days.put("sat", daysObj.optBoolean("sat", false));
+                    days.put("sun", daysObj.optBoolean("sun", false));
+                }
 
-    private void scheduleAllHabits() {
-        for (Habit h : habitList) {
-            HabitScheduler.schedule(this, h);
+                Habit habit = new Habit(
+                        obj.getString("name"),
+                        obj.getString("time"),
+                        obj.optBoolean("soundEnabled", true),
+                        days);
+                String lastDate = obj.optString("lastCompletedDate", "");
+                habit.setCompletedToday(today().equals(lastDate));
+                habit.setLastCompletedDate(lastDate);
+                habit.setEnabled(obj.optBoolean("enabled", true));
+                String skippedDate = obj.optString("skippedDate", "");
+                habit.setSkippedDate(today().equals(skippedDate) ? skippedDate : "");
+                habitList.add(habit);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
         }
     }
 
@@ -231,6 +267,8 @@ public class MainActivity extends AppCompatActivity {
                 obj.put("time", h.getTime());
                 obj.put("soundEnabled", h.isSoundEnabled());
                 obj.put("lastCompletedDate", h.getLastCompletedDate());
+                obj.put("skippedDate", h.getSkippedDate());
+                obj.put("enabled", h.isEnabled());
                 JSONObject daysObj = new JSONObject();
                 for (Map.Entry<String, Boolean> e : h.getDays().entrySet()) {
                     daysObj.put(e.getKey(), e.getValue());
@@ -239,6 +277,91 @@ public class MainActivity extends AppCompatActivity {
                 arr.put(obj);
             }
             prefs.edit().putString("list", arr.toString()).apply();
-        } catch (Exception e) { e.printStackTrace(); }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void scheduleAllHabits() {
+        for (Habit h : habitList) {
+            HabitScheduler.schedule(this, h);
+        }
+    }
+
+    private Map<String, Boolean> collectDays(CheckBox mon, CheckBox tue, CheckBox wed, CheckBox thu,
+                                             CheckBox fri, CheckBox sat, CheckBox sun) {
+        Map<String, Boolean> days = new HashMap<>();
+        days.put("mon", mon.isChecked());
+        days.put("tue", tue.isChecked());
+        days.put("wed", wed.isChecked());
+        days.put("thu", thu.isChecked());
+        days.put("fri", fri.isChecked());
+        days.put("sat", sat.isChecked());
+        days.put("sun", sun.isChecked());
+        return days;
+    }
+
+    private void setDayChecks(Map<String, Boolean> days, CheckBox mon, CheckBox tue, CheckBox wed,
+                              CheckBox thu, CheckBox fri, CheckBox sat, CheckBox sun) {
+        if (days == null) return;
+        mon.setChecked(days.getOrDefault("mon", false));
+        tue.setChecked(days.getOrDefault("tue", false));
+        wed.setChecked(days.getOrDefault("wed", false));
+        thu.setChecked(days.getOrDefault("thu", false));
+        fri.setChecked(days.getOrDefault("fri", false));
+        sat.setChecked(days.getOrDefault("sat", false));
+        sun.setChecked(days.getOrDefault("sun", false));
+    }
+
+    private void startLockService(Intent intent) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundService(intent);
+        } else {
+            startService(intent);
+        }
+    }
+
+    private boolean hasTelegramSettings() {
+        return !prefs.getString("telegram_bot_token", "").isEmpty()
+                && !prefs.getString("telegram_chat_id", "").isEmpty();
+    }
+
+    private String today() {
+        return new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(new Date());
+    }
+
+    private void requestOverlayPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            Intent intent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                    Uri.parse("package:" + getPackageName()));
+            startActivity(intent);
+        }
+    }
+
+    private void updateOverlayButton() {
+        View btnOverlay = findViewById(R.id.btnRequestOverlay);
+        if (btnOverlay == null) return;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
+            btnOverlay.setVisibility(View.VISIBLE);
+        } else {
+            btnOverlay.setVisibility(View.GONE);
+        }
+    }
+
+    private void requestExactAlarmPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            AlarmManager alarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
+            if (alarmManager != null && !alarmManager.canScheduleExactAlarms()) {
+                startActivity(new Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM));
+            }
+        }
+    }
+
+    private void requestNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+                && checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS)
+                != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{android.Manifest.permission.POST_NOTIFICATIONS}, 1);
+        }
     }
 }

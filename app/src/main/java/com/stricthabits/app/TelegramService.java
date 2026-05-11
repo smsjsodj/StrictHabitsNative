@@ -5,7 +5,6 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Handler;
 import android.os.IBinder;
-import android.widget.Toast;
 import org.json.JSONObject;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
@@ -13,10 +12,9 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 
 public class TelegramService extends Service {
-    private Handler handler = new Handler();
+    private final Handler handler = new Handler();
     private Runnable pollRunnable;
     private SharedPreferences prefs;
-    private String botToken = "8664151607:AAHHy9RDEN3gx2iNn_QNFM7Qhyw2dIIdm3Y"; // твой токен
     private int lastUpdateId = 0;
 
     @Override
@@ -31,36 +29,43 @@ public class TelegramService extends Service {
             @Override
             public void run() {
                 String chatId = prefs.getString("telegram_chat_id", "");
-                if (!chatId.isEmpty()) {
-                    pollUpdates(chatId);
+                String botToken = prefs.getString("telegram_bot_token", "");
+                if (!chatId.isEmpty() && !botToken.isEmpty()) {
+                    pollUpdates(botToken, chatId);
                 }
-                handler.postDelayed(this, 2000);
+                handler.postDelayed(this, 3000);
             }
         };
         handler.post(pollRunnable);
     }
 
-    private void pollUpdates(String myChatId) {
-        try {
-            URL url = new URL("https://api.telegram.org/bot" + botToken + "/getUpdates?offset=" + (lastUpdateId + 1) + "&timeout=30");
-            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-            conn.setRequestMethod("GET");
-            BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
-            StringBuilder sb = new StringBuilder();
-            String line;
-            while ((line = reader.readLine()) != null) sb.append(line);
-            JSONObject obj = new JSONObject(sb.toString());
-            if (obj.getBoolean("ok")) {
-                // разбор обновлений
-                // допустим, упростим: проверяем /unlock
-                String text = obj.toString().toLowerCase();
-                if (text.contains("/unlock") && text.contains(myChatId)) {
-                    // вызов разблокировки (заглушка)
-                    Toast.makeText(this, "Unlock via Telegram", Toast.LENGTH_SHORT).show();
+    private void pollUpdates(String botToken, String myChatId) {
+        new Thread(() -> {
+            HttpURLConnection conn = null;
+            try {
+                URL url = new URL("https://api.telegram.org/bot" + botToken
+                        + "/getUpdates?offset=" + (lastUpdateId + 1) + "&timeout=0");
+                conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("GET");
+                BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+                StringBuilder sb = new StringBuilder();
+                String line;
+                while ((line = reader.readLine()) != null) sb.append(line);
+                reader.close();
+
+                JSONObject obj = new JSONObject(sb.toString());
+                if (obj.optBoolean("ok", false)) {
+                    String text = obj.toString().toLowerCase();
+                    if (text.contains("/unlock") && text.contains(myChatId)) {
+                        sendBroadcast(new Intent("com.stricthabits.app.TELEGRAM_UNLOCK"));
+                    }
                 }
+            } catch (Exception e) {
+                e.printStackTrace();
+            } finally {
+                if (conn != null) conn.disconnect();
             }
-            reader.close();
-        } catch (Exception e) { e.printStackTrace(); }
+        }).start();
     }
 
     @Override
@@ -70,5 +75,7 @@ public class TelegramService extends Service {
     }
 
     @Override
-    public IBinder onBind(Intent intent) { return null; }
+    public IBinder onBind(Intent intent) {
+        return null;
+    }
 }

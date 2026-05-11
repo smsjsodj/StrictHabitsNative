@@ -21,6 +21,8 @@ public class BootReceiver extends BroadcastReceiver {
                 String name = obj.getString("name");
                 String time = obj.getString("time");
                 boolean sound = obj.getBoolean("soundEnabled");
+                boolean enabled = obj.optBoolean("enabled", true);
+                String skippedDate = obj.optString("skippedDate", "");
                 Map<String, Boolean> days = new HashMap<>();
                 JSONObject daysObj = obj.getJSONObject("days");
                 days.put("mon", daysObj.optBoolean("mon", false));
@@ -31,6 +33,8 @@ public class BootReceiver extends BroadcastReceiver {
                 days.put("sat", daysObj.optBoolean("sat", false));
                 days.put("sun", daysObj.optBoolean("sun", false));
                 Habit habit = new Habit(name, time, sound, days);
+                habit.setEnabled(enabled);
+                habit.setSkippedDate(skippedDate);
                 HabitScheduler.schedule(context, habit);
             }
         } catch (Exception e) { e.printStackTrace(); }
