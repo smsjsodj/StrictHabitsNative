@@ -3,6 +3,7 @@ package com.stricthabits.app;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -11,6 +12,7 @@ import android.media.AudioAttributes;
 import android.media.Ringtone;
 import android.media.RingtoneManager;
 import android.net.Uri;
+import android.provider.Settings;
 import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
@@ -95,21 +97,43 @@ public class LockService extends Service {
     }
 
     private Notification createNotification() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            return new Notification.Builder(this, CHANNEL_ID)
-                    .setContentTitle("Strict Habit")
-                    .setContentText(getNotificationText())
-                    .setSmallIcon(android.R.drawable.ic_lock_idle_lock)
-                    .setOngoing(true)
-                    .build();
-        } else {
-            return new Notification.Builder(this)
-                    .setContentTitle("Strict Habit")
-                    .setContentText(getNotificationText())
-                    .setSmallIcon(android.R.drawable.ic_lock_idle_lock)
-                    .setOngoing(true)
-                    .build();
+        Intent fullIntent = new Intent(this, LockActivity.class);
+        fullIntent.putExtra("habit_name", habitName);
+        fullIntent.putExtra("habit_time", habitTime);
+        fullIntent.putExtra(EXTRA_LOCK_KIND, lockKind);
+        fullIntent.putExtra(EXTRA_UNLOCK_MODE, unlockMode);
+        fullIntent.putExtra("sound_enabled", soundEnabled);
+        fullIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+
+        PendingIntent fullPending = PendingIntent.getActivity(this, 0, fullIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+
+        boolean canOverlay = true;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            canOverlay = Settings.canDrawOverlays(this);
         }
+
+        Notification.Builder builder;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            builder = new Notification.Builder(this, CHANNEL_ID);
+        } else {
+            builder = new Notification.Builder(this);
+        }
+
+        builder.setContentTitle("Strict Habit")
+                .setContentText(getNotificationText())
+                .setSmallIcon(android.R.drawable.ic_lock_idle_lock)
+                .setOngoing(true)
+                .setContentIntent(fullPending);
+
+        // If overlay is not available, try to use a full-screen intent so the user still sees reminder
+        if (!canOverlay) {
+            try {
+                builder.setFullScreenIntent(fullPending, true);
+            } catch (Exception ignored) { }
+        }
+
+        return builder.build();
     }
 
     private void showOverlay() {
