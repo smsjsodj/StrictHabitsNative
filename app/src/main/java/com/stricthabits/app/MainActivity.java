@@ -229,7 +229,7 @@ public class MainActivity extends AppCompatActivity {
             HabitScheduler.cancel(this, habit);
         }
         saveHabits();
-        if (completed) {
+        if (habit.isCompletedToday()) {
             HabitScheduler.cancel(this, habit);
             if (hasSelectedDays(habit)) {
                 HabitScheduler.scheduleNext(this, habit);
