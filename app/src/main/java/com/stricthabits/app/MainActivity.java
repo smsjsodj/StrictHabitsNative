@@ -229,6 +229,14 @@ public class MainActivity extends AppCompatActivity {
             HabitScheduler.cancel(this, habit);
         }
         saveHabits();
+        if (completed) {
+            HabitScheduler.cancel(this, habit);
+            if (hasSelectedDays(habit)) {
+                HabitScheduler.scheduleNext(this, habit);
+            }
+        } else if (habit.isEnabled()) {
+            HabitScheduler.schedule(this, habit);
+        }
         adapter.notifyItemChanged(position);
     }
 
@@ -352,6 +360,10 @@ public class MainActivity extends AppCompatActivity {
     private boolean hasTelegramSettings() {
         return !prefs.getString("telegram_bot_token", "").isEmpty()
                 && !prefs.getString("telegram_chat_id", "").isEmpty();
+    }
+
+    private boolean hasSelectedDays(Habit habit) {
+        return habit.getDays() != null && habit.getDays().containsValue(true);
     }
 
     private String today() {

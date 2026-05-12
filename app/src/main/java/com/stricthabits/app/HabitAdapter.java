@@ -54,20 +54,20 @@ public class HabitAdapter extends RecyclerView.Adapter<HabitAdapter.ViewHolder> 
         holder.habitDetails.setText(h.getTime()
                 + "  "
                 + getDaysString(h.getDays())
-                + "  |  выполнено: "
+                + "  |  \u0432\u044b\u043f\u043e\u043b\u043d\u0435\u043d\u043e: "
                 + h.getCompletedCount());
 
         if (!h.isEnabled()) {
-            holder.habitStatus.setText("ОТКЛЮЧЕНО");
+            holder.habitStatus.setText("\u041e\u0422\u041a\u041b\u042e\u0427\u0415\u041d\u041e");
             holder.habitStatus.setTextColor(Color.parseColor("#777777"));
         } else if (h.getSkippedDate() != null && !h.getSkippedDate().isEmpty()) {
-            holder.habitStatus.setText("ПРОПУЩЕНО СЕГОДНЯ");
+            holder.habitStatus.setText("\u041f\u0420\u041e\u041f\u0423\u0429\u0415\u041d\u041e \u0421\u0415\u0413\u041e\u0414\u041d\u042f");
             holder.habitStatus.setTextColor(Color.parseColor("#607D8B"));
         } else if (h.isCompletedToday()) {
-            holder.habitStatus.setText("ВЫПОЛНЕНО");
+            holder.habitStatus.setText("\u0412\u042b\u041f\u041e\u041b\u041d\u0415\u041d\u041e");
             holder.habitStatus.setTextColor(Color.parseColor("#4CAF50"));
         } else {
-            holder.habitStatus.setText("ОЖИДАЕТСЯ");
+            holder.habitStatus.setText("\u041e\u0416\u0418\u0414\u0410\u0415\u0422\u0421\u042f");
             holder.habitStatus.setTextColor(Color.parseColor("#FF9800"));
         }
 
@@ -81,7 +81,7 @@ public class HabitAdapter extends RecyclerView.Adapter<HabitAdapter.ViewHolder> 
             }
         });
 
-        holder.btnToggle.setText(h.isEnabled() ? "Выкл" : "Вкл");
+        holder.btnToggle.setText(h.isEnabled() ? "\u0412\u044b\u043a\u043b" : "\u0412\u043a\u043b");
         holder.btnEdit.setOnClickListener(v -> callPosition(holder, editListener::onEdit));
         holder.btnSkipToday.setOnClickListener(v -> callPosition(holder, skipTodayListener::onSkipToday));
         holder.btnToggle.setOnClickListener(v -> callPosition(holder, toggleListener::onToggle));
@@ -96,8 +96,8 @@ public class HabitAdapter extends RecyclerView.Adapter<HabitAdapter.ViewHolder> 
     }
 
     private String getDaysString(Map<String, Boolean> days) {
-        if (days == null || !days.containsValue(true)) return "каждый день";
-        String[] names = {"пн","вт","ср","чт","пт","сб","вс"};
+        if (days == null || !days.containsValue(true)) return "\u043e\u0434\u043d\u043e\u043a\u0440\u0430\u0442\u043d\u043e";
+        String[] names = {"\u043f\u043d","\u0432\u0442","\u0441\u0440","\u0447\u0442","\u043f\u0442","\u0441\u0431","\u0432\u0441"};
         String[] keys = {"mon","tue","wed","thu","fri","sat","sun"};
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < keys.length; i++) {

@@ -49,7 +49,7 @@ public class HabitScheduler {
                 intent,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
-        if (!habit.isEnabled() || isSkippedToday(habit)) {
+        if (!habit.isEnabled() || isSkippedToday(habit) || isCompletedOneShot(habit)) {
             alarmManager.cancel(pendingIntent);
             return;
         }
@@ -101,6 +101,15 @@ public class HabitScheduler {
         calendar.set(Calendar.MILLISECOND, 0);
 
         long now = System.currentTimeMillis();
+        if (isOneShot(habit)) {
+            if (allowCurrentMinute && isSameMinute(calendar, nowCalendar)) {
+                calendar.setTimeInMillis(now + 1000);
+            } else if (calendar.getTimeInMillis() <= now) {
+                calendar.add(Calendar.DAY_OF_YEAR, 1);
+            }
+            return calendar;
+        }
+
         if (allowCurrentMinute
                 && isSameMinute(calendar, nowCalendar)
                 && isDayEnabled(habit, nowCalendar)) {
@@ -142,18 +151,24 @@ public class HabitScheduler {
         return today.equals(habit.getSkippedDate());
     }
 
+    private static boolean isCompletedOneShot(Habit habit) {
+        return isOneShot(habit)
+                && habit.getLastCompletedDate() != null
+                && !habit.getLastCompletedDate().isEmpty();
+    }
+
     private static int getRequestCode(Habit habit) {
         return (habit.getName() + "|" + habit.getTime()).hashCode();
     }
 
     private static boolean isDayEnabled(Habit habit, Calendar cal) {
-        if (habit.getDays() == null || !habit.getDays().containsValue(true)) {
-            return true;
-        }
-
         String[] keys = {"sun", "mon", "tue", "wed", "thu", "fri", "sat"};
         int dayOfWeek = cal.get(Calendar.DAY_OF_WEEK);
         String key = keys[dayOfWeek - 1];
         return habit.getDays().getOrDefault(key, false);
+    }
+
+    private static boolean isOneShot(Habit habit) {
+        return habit.getDays() == null || !habit.getDays().containsValue(true);
     }
 }

@@ -34,7 +34,9 @@ public class AlarmReceiver extends BroadcastReceiver {
                 }
             }
             // Планируем следующий запуск
-            HabitScheduler.scheduleNext(context, habit);
+            if (!isOneShot(habit)) {
+                HabitScheduler.scheduleNext(context, habit);
+            }
         }
     }
 
@@ -83,6 +85,10 @@ public class AlarmReceiver extends BroadcastReceiver {
     }
 
     private boolean shouldRunToday(Habit habit) {
+        if (isOneShot(habit)) {
+            return true;
+        }
+
         Calendar cal = Calendar.getInstance();
         String dayKey;
         switch (cal.get(Calendar.DAY_OF_WEEK)) {
@@ -96,11 +102,16 @@ public class AlarmReceiver extends BroadcastReceiver {
             default: return false;
         }
         Map<String, Boolean> days = habit.getDays();
-        return days == null || !days.containsValue(true) || days.getOrDefault(dayKey, false);
+        return days.getOrDefault(dayKey, false);
     }
 
     private boolean isSkippedToday(Habit habit) {
         String today = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(new Date());
         return today.equals(habit.getSkippedDate());
+    }
+
+    private boolean isOneShot(Habit habit) {
+        Map<String, Boolean> days = habit.getDays();
+        return days == null || !days.containsValue(true);
     }
 }
