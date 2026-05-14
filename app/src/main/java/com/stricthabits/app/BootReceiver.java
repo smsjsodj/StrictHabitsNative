@@ -39,6 +39,30 @@ public class BootReceiver extends BroadcastReceiver {
                 habit.setLastCompletedDate(lastCompletedDate);
                 HabitScheduler.schedule(context, habit);
             }
+            // Загрузить и запланировать блокировки (если есть)
+            try {
+                String blocksJson = prefs.getString("blocks", "[]");
+                org.json.JSONArray barr = new org.json.JSONArray(blocksJson);
+                for (int i = 0; i < barr.length(); i++) {
+                    org.json.JSONObject obj = barr.getJSONObject(i);
+                    String start = obj.optString("startTime", "00:00");
+                    String end = obj.optString("endTime", "00:00");
+                    java.util.Map<String, Boolean> bdays = new java.util.HashMap<>();
+                    org.json.JSONObject daysObj = obj.optJSONObject("days");
+                    if (daysObj != null) {
+                        bdays.put("mon", daysObj.optBoolean("mon", false));
+                        bdays.put("tue", daysObj.optBoolean("tue", false));
+                        bdays.put("wed", daysObj.optBoolean("wed", false));
+                        bdays.put("thu", daysObj.optBoolean("thu", false));
+                        bdays.put("fri", daysObj.optBoolean("fri", false));
+                        bdays.put("sat", daysObj.optBoolean("sat", false));
+                        bdays.put("sun", daysObj.optBoolean("sun", false));
+                    }
+                    BlockPeriod bp = new BlockPeriod(start, end, bdays);
+                    bp.setEnabled(obj.optBoolean("enabled", true));
+                    BlockScheduler.schedule(context, bp);
+                }
+            } catch (Exception e) { e.printStackTrace(); }
         } catch (Exception e) { e.printStackTrace(); }
     }
 }

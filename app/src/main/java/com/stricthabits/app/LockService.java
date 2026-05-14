@@ -145,6 +145,7 @@ public class LockService extends Service {
         TextView tvTime = overlayView.findViewById(R.id.tvTime);
         EditText etConfirm = overlayView.findViewById(R.id.etConfirm);
         Button btnUnlock = overlayView.findViewById(R.id.btnUnlock);
+        Button btnTop = overlayView.findViewById(R.id.btnTopUnlock);
 
         tvName.setText(habitName);
         tvTime.setText(habitTime);
@@ -153,6 +154,14 @@ public class LockService extends Service {
             tvTime.setText("Telegram: /unlock");
             etConfirm.setVisibility(View.GONE);
             btnUnlock.setVisibility(View.GONE);
+        }
+
+        // Show a small top-right unlock button only for focus/block locks
+        if (LockService.LOCK_KIND_FOCUS.equals(lockKind)) {
+            btnTop.setVisibility(View.VISIBLE);
+            btnTop.setOnClickListener(v -> unlock());
+        } else {
+            btnTop.setVisibility(View.GONE);
         }
 
         btnUnlock.setOnClickListener(v -> {

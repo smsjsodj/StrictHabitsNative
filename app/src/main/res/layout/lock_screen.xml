@@ -1,47 +1,65 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:gravity="center"
-    android:background="#D32F2F"
-    android:padding="32dp">
+    android:background="#D32F2F">
 
-    <TextView
-        android:id="@+id/tvHabitName"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Привычка"
-        android:textSize="32sp"
-        android:textColor="#FFFFFF"
-        android:textStyle="bold"/>
-
-    <TextView
-        android:id="@+id/tvTime"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="12:00"
-        android:textSize="24sp"
-        android:textColor="#FFD966"
-        android:layout_marginTop="16dp"
-        android:layout_marginBottom="32dp"/>
-
-    <EditText
-        android:id="@+id/etConfirm"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:hint='Напиши "Я клянусь жопой"'
-        android:textColor="#000000"
-        android:textColorHint="#666666"
-        android:background="#FFFFFF"
-        android:padding="12dp"
-        android:layout_marginBottom="16dp"/>
-
+    <!-- Top right unlock button for focus/block mode -->
     <Button
-        android:id="@+id/btnUnlock"
-        android:layout_width="match_parent"
+        android:id="@+id/btnTopUnlock"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="РАЗБЛОКИРОВАТЬ"
-        android:textSize="18sp"/>
+        android:text="Разблокировать"
+        android:textSize="14sp"
+        android:layout_margin="12dp"
+        android:visibility="gone"
+        android:layout_gravity="top|end"
+        android:backgroundTint="#FFFFFFFF"/>
 
-</LinearLayout>
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:padding="32dp">
+
+        <TextView
+            android:id="@+id/tvHabitName"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Привычка"
+            android:textSize="32sp"
+            android:textColor="#FFFFFF"
+            android:textStyle="bold"/>
+
+        <TextView
+            android:id="@+id/tvTime"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="12:00"
+            android:textSize="24sp"
+            android:textColor="#FFD966"
+            android:layout_marginTop="16dp"
+            android:layout_marginBottom="32dp"/>
+
+        <EditText
+            android:id="@+id/etConfirm"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint='Напиши "Я клянусь жопой"'
+            android:textColor="#000000"
+            android:textColorHint="#666666"
+            android:background="#FFFFFF"
+            android:padding="12dp"
+            android:layout_marginBottom="16dp"/>
+
+        <Button
+            android:id="@+id/btnUnlock"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="РАЗБЛОКИРОВАТЬ"
+            android:textSize="18sp"/>
+
+    </LinearLayout>
+
+</FrameLayout>

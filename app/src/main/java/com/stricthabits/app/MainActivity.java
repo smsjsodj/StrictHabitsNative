@@ -35,6 +35,7 @@ public class MainActivity extends AppCompatActivity {
     private HabitAdapter adapter;
     private final List<Habit> habitList = new ArrayList<>();
     private SharedPreferences prefs;
+    private final List<BlockPeriod> blockList = new ArrayList<>();
     private final BroadcastReceiver habitsUpdatedReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
@@ -65,6 +66,7 @@ public class MainActivity extends AppCompatActivity {
         findViewById(R.id.btnFocusLock).setOnClickListener(v -> startFocusLock());
         findViewById(R.id.btnTelegram).setOnClickListener(v -> showTelegramDialog());
         findViewById(R.id.btnAddHabit).setOnClickListener(v -> showHabitDialog(-1));
+        findViewById(R.id.btnManageBlocks).setOnClickListener(v -> showBlocksDialog());
 
         View btnOverlay = findViewById(R.id.btnRequestOverlay);
         btnOverlay.setOnClickListener(v -> requestOverlayPermission());
@@ -288,6 +290,7 @@ public class MainActivity extends AppCompatActivity {
                 habit.setSkippedDate(today().equals(skippedDate) ? skippedDate : "");
                 habitList.add(habit);
             }
+            loadBlocks();
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -322,6 +325,7 @@ public class MainActivity extends AppCompatActivity {
         for (Habit h : habitList) {
             HabitScheduler.schedule(this, h);
         }
+        scheduleAllBlocks();
     }
 
     private Map<String, Boolean> collectDays(CheckBox mon, CheckBox tue, CheckBox wed, CheckBox thu,
@@ -419,5 +423,157 @@ public class MainActivity extends AppCompatActivity {
         } else {
             registerReceiver(habitsUpdatedReceiver, filter);
         }
+    }
+
+    // --------- Blocks management ---------
+    private void loadBlocks() {
+        try {
+            String json = prefs.getString("blocks", "[]");
+            org.json.JSONArray arr = new org.json.JSONArray(json);
+            blockList.clear();
+            for (int i = 0; i < arr.length(); i++) {
+                org.json.JSONObject obj = arr.getJSONObject(i);
+                java.util.Map<String, Boolean> days = new java.util.HashMap<>();
+                org.json.JSONObject daysObj = obj.optJSONObject("days");
+                if (daysObj != null) {
+                    days.put("mon", daysObj.optBoolean("mon", false));
+                    days.put("tue", daysObj.optBoolean("tue", false));
+                    days.put("wed", daysObj.optBoolean("wed", false));
+                    days.put("thu", daysObj.optBoolean("thu", false));
+                    days.put("fri", daysObj.optBoolean("fri", false));
+                    days.put("sat", daysObj.optBoolean("sat", false));
+                    days.put("sun", daysObj.optBoolean("sun", false));
+                }
+                BlockPeriod bp = new BlockPeriod(obj.optString("startTime", "00:00"), obj.optString("endTime", "00:00"), days);
+                bp.setEnabled(obj.optBoolean("enabled", true));
+                blockList.add(bp);
+            }
+        } catch (Exception e) { e.printStackTrace(); }
+    }
+
+    private void saveBlocks() {
+        try {
+            org.json.JSONArray arr = new org.json.JSONArray();
+            for (BlockPeriod b : blockList) {
+                org.json.JSONObject obj = new org.json.JSONObject();
+                obj.put("startTime", b.getStartTime());
+                obj.put("endTime", b.getEndTime());
+                obj.put("enabled", b.isEnabled());
+                org.json.JSONObject daysObj = new org.json.JSONObject();
+                for (java.util.Map.Entry<String, Boolean> e : b.getDays().entrySet()) {
+                    daysObj.put(e.getKey(), e.getValue());
+                }
+                obj.put("days", daysObj);
+                arr.put(obj);
+            }
+            prefs.edit().putString("blocks", arr.toString()).apply();
+        } catch (Exception e) { e.printStackTrace(); }
+    }
+
+    private void scheduleAllBlocks() {
+        for (BlockPeriod b : blockList) {
+            BlockScheduler.schedule(this, b);
+        }
+    }
+
+    private void showBlocksDialog() {
+        loadBlocks();
+        String[] items = new String[blockList.size() + 1];
+        for (int i = 0; i < blockList.size(); i++) {
+            BlockPeriod b = blockList.get(i);
+            items[i] = b.getStartTime() + " - " + b.getEndTime();
+        }
+        items[blockList.size()] = "Добавить блокировку";
+
+        new AlertDialog.Builder(this)
+                .setTitle("Блокировки")
+                .setItems(items, (dialog, which) -> {
+                    if (which == blockList.size()) {
+                        showAddBlockDialog(-1);
+                    } else {
+                        // options for existing block
+                        int pos = which;
+                        new AlertDialog.Builder(this)
+                                .setItems(new String[]{"Редактировать","Удалить","Отмена"}, (d2, idx) -> {
+                                    if (idx == 0) showAddBlockDialog(pos);
+                                    else if (idx == 1) {
+                                        BlockPeriod removed = blockList.remove(pos);
+                                        BlockScheduler.cancel(this, removed);
+                                        saveBlocks();
+                                        Toast.makeText(this, "Блокировка удалена", Toast.LENGTH_SHORT).show();
+                                    }
+                                }).show();
+                    }
+                })
+                .setNegativeButton("Закрыть", null)
+                .show();
+    }
+
+    private void showAddBlockDialog(int position) {
+        boolean editing = position >= 0;
+        BlockPeriod existing = editing ? blockList.get(position) : null;
+
+        View view = getLayoutInflater().inflate(R.layout.dialog_add_block, null);
+        Button btnStart = view.findViewById(R.id.btnSelectStartTime);
+        Button btnEnd = view.findViewById(R.id.btnSelectEndTime);
+        CheckBox chkMon = view.findViewById(R.id.chkMon);
+        CheckBox chkTue = view.findViewById(R.id.chkTue);
+        CheckBox chkWed = view.findViewById(R.id.chkWed);
+        CheckBox chkThu = view.findViewById(R.id.chkThu);
+        CheckBox chkFri = view.findViewById(R.id.chkFri);
+        CheckBox chkSat = view.findViewById(R.id.chkSat);
+        CheckBox chkSun = view.findViewById(R.id.chkSun);
+
+        int[] startHour = {0};
+        int[] startMinute = {0};
+        int[] endHour = {10};
+        int[] endMinute = {0};
+
+        if (existing != null) {
+            String[] sp = existing.getStartTime().split(":");
+            startHour[0] = Integer.parseInt(sp[0]);
+            startMinute[0] = Integer.parseInt(sp[1]);
+            String[] ep = existing.getEndTime().split(":");
+            endHour[0] = Integer.parseInt(ep[0]);
+            endMinute[0] = Integer.parseInt(ep[1]);
+            setDayChecks(existing.getDays(), chkMon, chkTue, chkWed, chkThu, chkFri, chkSat, chkSun);
+        }
+
+        btnStart.setText(String.format(Locale.getDefault(), "%02d:%02d", startHour[0], startMinute[0]));
+        btnEnd.setText(String.format(Locale.getDefault(), "%02d:%02d", endHour[0], endMinute[0]));
+
+        btnStart.setOnClickListener(v -> new TimePickerDialog(this,
+                (view1, hourOfDay, minuteOfHour) -> {
+                    startHour[0] = hourOfDay; startMinute[0] = minuteOfHour;
+                    btnStart.setText(String.format(Locale.getDefault(), "%02d:%02d", startHour[0], startMinute[0]));
+                }, startHour[0], startMinute[0], true).show());
+
+        btnEnd.setOnClickListener(v -> new TimePickerDialog(this,
+                (view12, hourOfDay, minuteOfHour) -> {
+                    endHour[0] = hourOfDay; endMinute[0] = minuteOfHour;
+                    btnEnd.setText(String.format(Locale.getDefault(), "%02d:%02d", endHour[0], endMinute[0]));
+                }, endHour[0], endMinute[0], true).show());
+
+        new AlertDialog.Builder(this)
+                .setTitle(editing ? "Изменить блок" : "Новая блокировка")
+                .setView(view)
+                .setPositiveButton("Сохранить", (dialog, which) -> {
+                    String start = String.format(Locale.getDefault(), "%02d:%02d", startHour[0], startMinute[0]);
+                    String end = String.format(Locale.getDefault(), "%02d:%02d", endHour[0], endMinute[0]);
+                    java.util.Map<String, Boolean> days = collectDays(chkMon, chkTue, chkWed, chkThu, chkFri, chkSat, chkSun);
+                    BlockPeriod bp = new BlockPeriod(start, end, days);
+                    if (editing) {
+                        BlockPeriod old = blockList.get(position);
+                        BlockScheduler.cancel(this, old);
+                        blockList.set(position, bp);
+                    } else {
+                        blockList.add(bp);
+                    }
+                    saveBlocks();
+                    BlockScheduler.schedule(this, bp);
+                    Toast.makeText(this, "Блокировка сохранена", Toast.LENGTH_SHORT).show();
+                })
+                .setNegativeButton("Отмена", null)
+                .show();
     }
 }
