@@ -157,23 +157,16 @@ public class LockService extends Service {
         }
 
         // Show a small top-right unlock button only for focus/block locks
-        if (LockService.LOCK_KIND_FOCUS.equals(lockKind)) {
+        // Hide the top unlock button if Telegram unlock mode is active.
+        if (LockService.LOCK_KIND_FOCUS.equals(lockKind) && !UNLOCK_MODE_TELEGRAM.equals(unlockMode)) {
             btnTop.setVisibility(View.VISIBLE);
             btnTop.setOnClickListener(v -> unlock());
         } else {
             btnTop.setVisibility(View.GONE);
         }
 
-        btnUnlock.setOnClickListener(v -> {
-            String text = etConfirm.getText().toString().trim();
-            if (text.equalsIgnoreCase("\u044f \u043a\u043b\u044f\u043d\u0443\u0441\u044c \u0436\u043e\u043f\u043e\u0439")) {
-                unlock();
-            } else {
-                Toast.makeText(LockService.this,
-                        "\u041d\u0435\u0432\u0435\u0440\u043d\u0430\u044f \u0444\u0440\u0430\u0437\u0430",
-                        Toast.LENGTH_SHORT).show();
-            }
-        });
+        // For non-Telegram unlocks simply unlock on button press (no phrase required).
+        btnUnlock.setOnClickListener(v -> unlock());
 
         int flags = WindowManager.LayoutParams.FLAG_FULLSCREEN
                 | WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON

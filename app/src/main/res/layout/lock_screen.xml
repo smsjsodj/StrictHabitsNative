@@ -46,7 +46,7 @@
             android:id="@+id/etConfirm"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint='Напиши "Я клянусь жопой"'
+            android:hint="Подтвердите присутствие"
             android:textColor="#000000"
             android:textColorHint="#666666"
             android:background="#FFFFFF"
