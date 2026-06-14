@@ -849,16 +849,26 @@ public class MainActivity extends AppCompatActivity {
         android.content.pm.PackageManager pm = getPackageManager();
         List<android.content.pm.ApplicationInfo> packages = pm.getInstalledApplications(0);
         
+        Log.d("AppBlocker", "Total installed apps: " + packages.size());
+        
         for (android.content.pm.ApplicationInfo appInfo : packages) {
             String packageName = appInfo.packageName;
+            String appName = "";
+            try {
+                appName = pm.getApplicationLabel(appInfo).toString();
+            } catch (Exception e) {
+                appName = packageName;
+            }
             
             // Пропускаем если уже в черном списке
             if (blockedPackages.contains(packageName)) {
+                Log.d("AppBlocker", "SKIP (in blocked list): " + packageName);
                 continue;
             }
             
             // Пропускаем само приложение Strict Habits
             if (packageName.equals(getPackageName())) {
+                Log.d("AppBlocker", "SKIP (self): " + packageName);
                 continue;
             }
             
@@ -867,6 +877,7 @@ public class MainActivity extends AppCompatActivity {
             for (String systemPackage : systemPackagesToExclude) {
                 if (packageName.equals(systemPackage)) {
                     isSystemByName = true;
+                    Log.d("AppBlocker", "SKIP (system by name): " + packageName);
                     break;
                 }
             }
@@ -879,6 +890,7 @@ public class MainActivity extends AppCompatActivity {
             for (String prefix : systemPackagePrefixes) {
                 if (packageName.startsWith(prefix)) {
                     isSystemByPrefix = true;
+                    Log.d("AppBlocker", "SKIP (system by prefix): " + packageName + " (prefix: " + prefix + ")");
                     break;
                 }
             }
@@ -891,6 +903,7 @@ public class MainActivity extends AppCompatActivity {
             for (String prefix : manufacturerPrefixes) {
                 if (packageName.startsWith(prefix)) {
                     isSystemManufacturer = true;
+                    Log.d("AppBlocker", "SKIP (manufacturer): " + packageName + " (prefix: " + prefix + ")");
                     break;
                 }
             }
@@ -898,9 +911,11 @@ public class MainActivity extends AppCompatActivity {
                 continue;
             }
             
-            String appName = pm.getApplicationLabel(appInfo).toString();
+            Log.d("AppBlocker", "ADD to list: " + packageName + " (" + appName + ")");
             apps.add(new BlockedApp(packageName, appName, "permanent"));
         }
+        
+        Log.d("AppBlocker", "Total apps to show: " + apps.size());
         
         // Sort by name
         apps.sort((a, b) -> a.getAppName().compareTo(b.getAppName()));
