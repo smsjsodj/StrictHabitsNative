@@ -7,12 +7,15 @@ import android.util.Log;
 import android.view.accessibility.AccessibilityEvent;
 import org.json.JSONArray;
 import org.json.JSONObject;
+import java.util.HashMap;
+import java.util.Map;
 
 public class AppBlockAccessibilityService extends AccessibilityService {
     private static final String TAG = "AppBlockAccessibilityService";
     private SharedPreferences prefs;
-    private long lastBlockTime = 0;
-    private static final long BLOCK_COOLDOWN = 500; // ms
+    // Отдельный cooldown для каждого приложения
+    private Map<String, Long> lastBlockTimeByApp = new HashMap<>();
+    private static final long BLOCK_COOLDOWN = 2000; // ms (2 секунды между блокировками одного приложения)
 
     @Override
     public void onCreate() {
@@ -29,23 +32,30 @@ public class AppBlockAccessibilityService extends AccessibilityService {
 
     @Override
     public void onAccessibilityEvent(AccessibilityEvent event) {
-        if (event.getEventType() == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
-            String packageName = event.getPackageName() != null ? event.getPackageName().toString() : null;
+        String packageName = event.getPackageName() != null ? event.getPackageName().toString() : null;
+        int eventType = event.getEventType();
+        
+        Log.d(TAG, "Accessibility Event - Type: " + eventType + ", Package: " + packageName);
+        
+        // Обрабатываем несколько типов событий для перехвата приложений
+        if ((eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED ||
+             eventType == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED) &&
+            packageName != null && !packageName.equals(getPackageName())) {
             
-            Log.d(TAG, "Window changed: " + packageName);
+            long currentTime = System.currentTimeMillis();
+            long lastBlockTime = lastBlockTimeByApp.getOrDefault(packageName, 0L);
             
-            if (packageName != null && !packageName.equals(getPackageName())) {
-                long currentTime = System.currentTimeMillis();
-                if (currentTime - lastBlockTime > BLOCK_COOLDOWN) {
-                    Log.d(TAG, "Checking if blocked: " + packageName);
-                    if (isAppBlocked(packageName)) {
-                        Log.d(TAG, "App is BLOCKED, blocking now: " + packageName);
-                        lastBlockTime = currentTime;
-                        blockApp(packageName);
-                    } else {
-                        Log.d(TAG, "App is NOT blocked: " + packageName);
-                    }
+            if (currentTime - lastBlockTime > BLOCK_COOLDOWN) {
+                Log.d(TAG, "Checking if blocked: " + packageName + " (last block was " + (currentTime - lastBlockTime) + "ms ago)");
+                if (isAppBlocked(packageName)) {
+                    Log.d(TAG, "App is BLOCKED, blocking now: " + packageName);
+                    lastBlockTimeByApp.put(packageName, currentTime);
+                    blockApp(packageName);
+                } else {
+                    Log.d(TAG, "App is NOT blocked: " + packageName);
                 }
+            } else {
+                Log.d(TAG, "Cooldown not finished for " + packageName + " (need " + (BLOCK_COOLDOWN - (currentTime - lastBlockTime)) + "ms more)");
             }
         }
     }
