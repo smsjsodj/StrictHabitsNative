@@ -2,11 +2,13 @@ package com.stricthabits.app;
 
 import android.accessibilityservice.AccessibilityService;
 import android.content.SharedPreferences;
+import android.util.Log;
 import android.view.accessibility.AccessibilityEvent;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
 public class AppBlockAccessibilityService extends AccessibilityService {
+    private static final String TAG = "AppBlockAccessibilityService";
     private SharedPreferences prefs;
     private long lastBlockTime = 0;
     private static final long BLOCK_COOLDOWN = 500; // ms
@@ -15,6 +17,13 @@ public class AppBlockAccessibilityService extends AccessibilityService {
     public void onCreate() {
         super.onCreate();
         prefs = getSharedPreferences("habits", MODE_PRIVATE);
+        Log.d(TAG, "AppBlockAccessibilityService CREATED");
+    }
+
+    @Override
+    public void onServiceConnected() {
+        super.onServiceConnected();
+        Log.d(TAG, "AppBlockAccessibilityService CONNECTED");
     }
 
     @Override
@@ -22,12 +31,18 @@ public class AppBlockAccessibilityService extends AccessibilityService {
         if (event.getEventType() == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
             String packageName = event.getPackageName() != null ? event.getPackageName().toString() : null;
             
+            Log.d(TAG, "Window changed: " + packageName);
+            
             if (packageName != null && !packageName.equals(getPackageName())) {
                 long currentTime = System.currentTimeMillis();
                 if (currentTime - lastBlockTime > BLOCK_COOLDOWN) {
+                    Log.d(TAG, "Checking if blocked: " + packageName);
                     if (isAppBlocked(packageName)) {
+                        Log.d(TAG, "App is BLOCKED, blocking now: " + packageName);
                         lastBlockTime = currentTime;
                         blockApp(packageName);
+                    } else {
+                        Log.d(TAG, "App is NOT blocked: " + packageName);
                     }
                 }
             }
@@ -35,29 +50,38 @@ public class AppBlockAccessibilityService extends AccessibilityService {
     }
 
     @Override
-    public void onInterrupt() {}
+    public void onInterrupt() {
+        Log.d(TAG, "Service interrupted");
+    }
 
     private boolean isAppBlocked(String packageName) {
         // Проверяем белый список первым
         if (isAppWhitelisted(packageName)) {
+            Log.d(TAG, "App is WHITELISTED: " + packageName);
             return false;
         }
 
         try {
             String blockedAppsJson = prefs.getString("blocked_apps", "[]");
             JSONArray blockedApps = new JSONArray(blockedAppsJson);
+            Log.d(TAG, "Total blocked apps: " + blockedApps.length());
 
             for (int i = 0; i < blockedApps.length(); i++) {
                 JSONObject app = blockedApps.getJSONObject(i);
-                if (app.getString("packageName").equals(packageName) && app.getBoolean("enabled")) {
+                String blockPackageName = app.getString("packageName");
+                boolean isEnabled = app.getBoolean("enabled");
+                
+                if (blockPackageName.equals(packageName) && isEnabled) {
                     BlockedApp blockedApp = jsonToBlockedApp(app);
-                    if (blockedApp.isBlockedNow()) {
+                    boolean blockedNow = blockedApp.isBlockedNow();
+                    Log.d(TAG, "Found blocked app: " + packageName + ", blockedNow=" + blockedNow);
+                    if (blockedNow) {
                         return true;
                     }
                 }
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            Log.e(TAG, "Error checking if app blocked", e);
         }
         return false;
     }
@@ -66,32 +90,47 @@ public class AppBlockAccessibilityService extends AccessibilityService {
         try {
             String whitelistedAppsJson = prefs.getString("whitelisted_apps", "[]");
             JSONArray whitelistedApps = new JSONArray(whitelistedAppsJson);
+            Log.d(TAG, "Total whitelisted apps: " + whitelistedApps.length());
 
             for (int i = 0; i < whitelistedApps.length(); i++) {
                 JSONObject app = whitelistedApps.getJSONObject(i);
-                if (app.getString("packageName").equals(packageName) && app.getBoolean("enabled")) {
+                String whitePackageName = app.getString("packageName");
+                boolean isEnabled = app.getBoolean("enabled");
+                
+                if (whitePackageName.equals(packageName) && isEnabled) {
+                    Log.d(TAG, "App is in whitelist: " + packageName);
                     return true;
                 }
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            Log.e(TAG, "Error checking whitelist", e);
         }
         return false;
     }
 
     private void blockApp(String packageName) {
         try {
+            Log.d(TAG, "Starting to block app: " + packageName);
+            
             android.content.Intent intent = new android.content.Intent(this, BlockDialogActivity.class);
-            intent.setFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK | android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP);
+            intent.setFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK 
+                    | android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP
+                    | android.content.Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS);
             intent.putExtra("package_name", packageName);
             startActivity(intent);
             
+            Log.d(TAG, "BlockDialogActivity started");
+            
             // Возвращаемся в главное приложение
+            Thread.sleep(100);
             android.content.Intent homeIntent = new android.content.Intent(android.content.Intent.ACTION_MAIN);
             homeIntent.addCategory(android.content.Intent.CATEGORY_HOME);
             homeIntent.setFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
             startActivity(homeIntent);
+            
+            Log.d(TAG, "Returned to home screen");
         } catch (Exception e) {
+            Log.e(TAG, "Error blocking app", e);
             e.printStackTrace();
         }
     }

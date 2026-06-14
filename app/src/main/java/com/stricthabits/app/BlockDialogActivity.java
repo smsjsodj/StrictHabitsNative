@@ -1,6 +1,7 @@
 package com.stricthabits.app;
 
 import android.app.Activity;
+import android.os.Build;
 import android.os.Bundle;
 import android.view.WindowManager;
 import android.widget.TextView;
@@ -20,9 +21,20 @@ public class BlockDialogActivity extends Activity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.dialog_block_app);
 
-        getWindow().addFlags(WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED
+        // Флаги для отображения поверх всех экранов
+        WindowManager.LayoutParams params = getWindow().getAttributes();
+        params.flags |= WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED
                 | WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
-                | WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON);
+                | WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
+                | WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED;
+        
+        // Для Android 10+ нужен этот флаг для отображения поверх других приложений
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            params.systemUiVisibility = View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION;
+        }
+        
+        getWindow().setAttributes(params);
+        getWindow().setType(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY);
 
         packageManager = getPackageManager();
         packageName = getIntent().getStringExtra("package_name");
