@@ -805,17 +805,10 @@ public class MainActivity extends AppCompatActivity {
             blockedPackages.add(blocked.getPackageName());
         }
         
-        // Системные пакеты для исключения
+        // Системные пакеты для исключения - только самые важные
         String[] systemPackagePrefixes = {
                 "android.",
-                "com.android.",
-                "com.google.android.",
-                "com.samsung.android.",
-                "com.sec.",
-                "com.miui.",
-                "com.xiaomi.",
-                "com.oppo.",
-                "com.vivo."
+                "com.android."
         };
         
         // Системные приложения для исключения по точному имени
@@ -826,7 +819,31 @@ public class MainActivity extends AppCompatActivity {
                 "com.android.settings",
                 "com.android.permissioncontroller",
                 "com.android.packageinstaller",
-                "android.auto_generated_rro"
+                "com.android.phone",
+                "com.android.dialer",
+                "com.android.contacts",
+                "android.auto_generated_rro",
+                // Google системные сервисы
+                "com.google.android.gms",
+                "com.google.android.googlequicksearchbox",
+                "com.google.android.apps.googleassistant",
+                "com.google.android.marmoset.accessconfigmanager",
+                "com.google.android.carrierconfig",
+                // Производители
+                "com.samsung.android.systemui",
+                "com.samsung.android.settings",
+                "com.samsung.android.dialer",
+                "com.samsung.android.contacts",
+                "com.sec.android.app.launcher"
+        };
+        
+        // Префиксы для исключения - только системные от производителей
+        String[] manufacturerPrefixes = {
+                "com.sec.",
+                "com.miui.",
+                "com.xiaomi.",
+                "com.oppo.",
+                "com.vivo."
         };
         
         android.content.pm.PackageManager pm = getPackageManager();
@@ -857,7 +874,7 @@ public class MainActivity extends AppCompatActivity {
                 continue;
             }
             
-            // Пропускаем системные приложения по префиксу
+            // Пропускаем системные приложения по базовому префиксу
             boolean isSystemByPrefix = false;
             for (String prefix : systemPackagePrefixes) {
                 if (packageName.startsWith(prefix)) {
@@ -866,6 +883,18 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
             if (isSystemByPrefix) {
+                continue;
+            }
+            
+            // Пропускаем приложения производителей только если они системные
+            boolean isSystemManufacturer = false;
+            for (String prefix : manufacturerPrefixes) {
+                if (packageName.startsWith(prefix)) {
+                    isSystemManufacturer = true;
+                    break;
+                }
+            }
+            if (isSystemManufacturer) {
                 continue;
             }
             
