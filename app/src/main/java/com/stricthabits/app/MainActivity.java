@@ -645,18 +645,19 @@ public class MainActivity extends AppCompatActivity {
         Button btnAdd = view.findViewById(R.id.btnAddBlockedApp);
         
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
-        BlockedAppAdapter adapter = new BlockedAppAdapter(
+        final BlockedAppAdapter[] adapterHolder = {null};
+        adapterHolder[0] = new BlockedAppAdapter(
                 blockedAppList,
                 this,
                 app -> {
                     blockedAppList.remove(app);
                     saveBlockedApps();
-                    adapter.notifyDataSetChanged();
+                    adapterHolder[0].notifyDataSetChanged();
                     Toast.makeText(this, "Приложение удалено из списка блокировок", Toast.LENGTH_SHORT).show();
                 },
                 (app, enabled) -> saveBlockedApps()
         );
-        recyclerView.setAdapter(adapter);
+        recyclerView.setAdapter(adapterHolder[0]);
         
         btnAdd.setOnClickListener(v -> showSelectAppDialog());
         
@@ -833,18 +834,19 @@ public class MainActivity extends AppCompatActivity {
         Button btnAdd = view.findViewById(R.id.btnAddWhitelistedApp);
         
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
-        WhitelistedAppAdapter adapter = new WhitelistedAppAdapter(
+        final WhitelistedAppAdapter[] adapterHolder = {null};
+        adapterHolder[0] = new WhitelistedAppAdapter(
                 whitelistedAppList,
                 this,
                 app -> {
                     whitelistedAppList.remove(app);
                     saveWhitelistedApps();
-                    adapter.notifyDataSetChanged();
+                    adapterHolder[0].notifyDataSetChanged();
                     Toast.makeText(this, "Приложение удалено из белого списка", Toast.LENGTH_SHORT).show();
                 },
                 (app, enabled) -> saveWhitelistedApps()
         );
-        recyclerView.setAdapter(adapter);
+        recyclerView.setAdapter(adapterHolder[0]);
         
         btnAdd.setOnClickListener(v -> showSelectAppForWhitelistDialog());
         
