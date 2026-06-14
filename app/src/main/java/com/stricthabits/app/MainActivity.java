@@ -806,45 +806,17 @@ public class MainActivity extends AppCompatActivity {
             blockedPackages.add(blocked.getPackageName());
         }
         
-        // Системные пакеты для исключения - только самые важные
-        String[] systemPackagePrefixes = {
-                "android.",
-                "com.android."
-        };
-        
-        // Системные приложения для исключения по точному имени
+        // Только самые критичные системные приложения для исключения
         String[] systemPackagesToExclude = {
                 "com.android.systemui",
                 "com.android.launcher",
                 "com.android.launcher3",
+                "com.samsung.android.launcher",
+                "com.sec.android.app.launcher",
+                "com.miui.home",
                 "com.android.settings",
                 "com.android.permissioncontroller",
-                "com.android.packageinstaller",
-                "com.android.phone",
-                "com.android.dialer",
-                "com.android.contacts",
-                "android.auto_generated_rro",
-                // Google системные сервисы
-                "com.google.android.gms",
-                "com.google.android.googlequicksearchbox",
-                "com.google.android.apps.googleassistant",
-                "com.google.android.marmoset.accessconfigmanager",
-                "com.google.android.carrierconfig",
-                // Производители
-                "com.samsung.android.systemui",
-                "com.samsung.android.settings",
-                "com.samsung.android.dialer",
-                "com.samsung.android.contacts",
-                "com.sec.android.app.launcher"
-        };
-        
-        // Префиксы для исключения - только системные от производителей
-        String[] manufacturerPrefixes = {
-                "com.sec.",
-                "com.miui.",
-                "com.xiaomi.",
-                "com.oppo.",
-                "com.vivo."
+                "com.android.packageinstaller"
         };
         
         android.content.pm.PackageManager pm = getPackageManager();
@@ -873,12 +845,12 @@ public class MainActivity extends AppCompatActivity {
                 continue;
             }
             
-            // Пропускаем системные приложения по точному имени
+            // Пропускаем только самые критичные системные приложения
             boolean isSystemByName = false;
             for (String systemPackage : systemPackagesToExclude) {
                 if (packageName.equals(systemPackage)) {
                     isSystemByName = true;
-                    Log.d("AppBlocker", "SKIP (system by name): " + packageName);
+                    Log.d("AppBlocker", "SKIP (critical system): " + packageName);
                     break;
                 }
             }
@@ -886,37 +858,11 @@ public class MainActivity extends AppCompatActivity {
                 continue;
             }
             
-            // Пропускаем системные приложения по базовому префиксу
-            boolean isSystemByPrefix = false;
-            for (String prefix : systemPackagePrefixes) {
-                if (packageName.startsWith(prefix)) {
-                    isSystemByPrefix = true;
-                    Log.d("AppBlocker", "SKIP (system by prefix): " + packageName + " (prefix: " + prefix + ")");
-                    break;
-                }
-            }
-            if (isSystemByPrefix) {
-                continue;
-            }
-            
-            // Пропускаем приложения производителей только если они системные
-            boolean isSystemManufacturer = false;
-            for (String prefix : manufacturerPrefixes) {
-                if (packageName.startsWith(prefix)) {
-                    isSystemManufacturer = true;
-                    Log.d("AppBlocker", "SKIP (manufacturer): " + packageName + " (prefix: " + prefix + ")");
-                    break;
-                }
-            }
-            if (isSystemManufacturer) {
-                continue;
-            }
-            
             Log.d("AppBlocker", "ADD to list: " + packageName + " (" + appName + ")");
             apps.add(new BlockedApp(packageName, appName, "permanent"));
         }
         
-        Log.d("AppBlocker", "Total apps to show: " + apps.size());
+        Log.d("AppBlocker", "Total apps to show in blocked list: " + apps.size());
         
         // Sort by name
         apps.sort((a, b) -> a.getAppName().compareTo(b.getAppName()));
@@ -1025,15 +971,49 @@ public class MainActivity extends AppCompatActivity {
             whitelistedPackages.add(whitelisted.getPackageName());
         }
         
+        // Только самые критичные системные приложения для исключения
+        String[] systemPackagesToExclude = {
+                "com.android.systemui",
+                "com.android.launcher",
+                "com.android.launcher3",
+                "com.samsung.android.launcher",
+                "com.sec.android.app.launcher",
+                "com.miui.home",
+                "com.android.settings",
+                "com.android.permissioncontroller",
+                "com.android.packageinstaller"
+        };
+        
         android.content.pm.PackageManager pm = getPackageManager();
         List<android.content.pm.ApplicationInfo> packages = pm.getInstalledApplications(0);
         
         for (android.content.pm.ApplicationInfo appInfo : packages) {
-            if (!whitelistedPackages.contains(appInfo.packageName)
-                    && !appInfo.packageName.equals(getPackageName())) {
-                String appName = pm.getApplicationLabel(appInfo).toString();
-                apps.add(new WhitelistedApp(appInfo.packageName, appName));
+            String packageName = appInfo.packageName;
+            
+            // Пропускаем если уже в белом списке
+            if (whitelistedPackages.contains(packageName)) {
+                continue;
             }
+            
+            // Пропускаем само приложение Strict Habits
+            if (packageName.equals(getPackageName())) {
+                continue;
+            }
+            
+            // Пропускаем только самые критичные системные приложения
+            boolean isSystemByName = false;
+            for (String systemPackage : systemPackagesToExclude) {
+                if (packageName.equals(systemPackage)) {
+                    isSystemByName = true;
+                    break;
+                }
+            }
+            if (isSystemByName) {
+                continue;
+            }
+            
+            String appName = pm.getApplicationLabel(appInfo).toString();
+            apps.add(new WhitelistedApp(packageName, appName));
         }
         
         // Sort by name
