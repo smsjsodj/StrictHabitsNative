@@ -25,6 +25,15 @@
         android:layout_height="wrap_content"
         android:text="⚡ Добавить ВСЕ приложения"
         android:textSize="14sp"
-        android:backgroundTint="#FF5722" />
+        android:backgroundTint="#FF5722"
+        android:layout_marginBottom="8dp" />
+
+    <Button
+        android:id="@+id/btnDeleteAllApps"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="🗑️ Удалить ВСЕ приложения"
+        android:textSize="14sp"
+        android:backgroundTint="#F44336" />
 
 </LinearLayout>

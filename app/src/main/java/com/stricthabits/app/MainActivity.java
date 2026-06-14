@@ -663,6 +663,11 @@ public class MainActivity extends AppCompatActivity {
         Button btnAddAll = view.findViewById(R.id.btnAddAllApps);
         btnAddAll.setOnClickListener(v -> addAllAppsToBlocked());
         
+        Button btnDeleteAll = view.findViewById(R.id.btnDeleteAllApps);
+        if (btnDeleteAll != null) {
+            btnDeleteAll.setOnClickListener(v -> deleteAllBlockedApps());
+        }
+        
         builder.setView(view);
         builder.setNegativeButton("Закрыть", null);
         builder.show();
@@ -696,7 +701,7 @@ public class MainActivity extends AppCompatActivity {
         
         new AlertDialog.Builder(this)
                 .setTitle("Добавить все приложения?")
-                .setMessage("Это добавит " + allApps.size() + " приложений в постоянную блокировку.\n\nЭто позволит открывать только приложения из белого списка.")
+                .setMessage("Это добавит " + allApps.size() + " приложений в постоянную блокировку.\n\nЭто позволит открывать только приложения из белого списка.\n\nСистемные приложения автоматически исключены.")
                 .setPositiveButton("Добавить всё", (dialog, which) -> {
                     for (BlockedApp app : allApps) {
                         app.setBlockType("permanent");
@@ -704,6 +709,25 @@ public class MainActivity extends AppCompatActivity {
                     }
                     saveBlockedApps();
                     Toast.makeText(MainActivity.this, "Добавлено " + allApps.size() + " приложений", Toast.LENGTH_SHORT).show();
+                    showBlockedAppsDialog(); // Перезагрузим диалог
+                })
+                .setNegativeButton("Отмена", null)
+                .show();
+    }
+
+    private void deleteAllBlockedApps() {
+        if (blockedAppList.isEmpty()) {
+            Toast.makeText(this, "Нет заблокированных приложений", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        
+        new AlertDialog.Builder(this)
+                .setTitle("Удалить все заблокированные приложения?")
+                .setMessage("Это удалит " + blockedAppList.size() + " заблокированных приложений из черного списка.")
+                .setPositiveButton("Удалить всё", (dialog, which) -> {
+                    blockedAppList.clear();
+                    saveBlockedApps();
+                    Toast.makeText(MainActivity.this, "Все приложения удалены из черного списка", Toast.LENGTH_SHORT).show();
                     showBlockedAppsDialog(); // Перезагрузим диалог
                 })
                 .setNegativeButton("Отмена", null)
@@ -781,15 +805,72 @@ public class MainActivity extends AppCompatActivity {
             blockedPackages.add(blocked.getPackageName());
         }
         
+        // Системные пакеты для исключения
+        String[] systemPackagePrefixes = {
+                "android.",
+                "com.android.",
+                "com.google.android.",
+                "com.samsung.android.",
+                "com.sec.",
+                "com.miui.",
+                "com.xiaomi.",
+                "com.oppo.",
+                "com.vivo."
+        };
+        
+        // Системные приложения для исключения по точному имени
+        String[] systemPackagesToExclude = {
+                "com.android.systemui",
+                "com.android.launcher",
+                "com.android.launcher3",
+                "com.android.settings",
+                "com.android.permissioncontroller",
+                "com.android.packageinstaller",
+                "android.auto_generated_rro"
+        };
+        
         android.content.pm.PackageManager pm = getPackageManager();
         List<android.content.pm.ApplicationInfo> packages = pm.getInstalledApplications(0);
         
         for (android.content.pm.ApplicationInfo appInfo : packages) {
-            if (!blockedPackages.contains(appInfo.packageName)
-                    && !appInfo.packageName.equals(getPackageName())) {
-                String appName = pm.getApplicationLabel(appInfo).toString();
-                apps.add(new BlockedApp(appInfo.packageName, appName, "permanent"));
+            String packageName = appInfo.packageName;
+            
+            // Пропускаем если уже в черном списке
+            if (blockedPackages.contains(packageName)) {
+                continue;
             }
+            
+            // Пропускаем само приложение Strict Habits
+            if (packageName.equals(getPackageName())) {
+                continue;
+            }
+            
+            // Пропускаем системные приложения по точному имени
+            boolean isSystemByName = false;
+            for (String systemPackage : systemPackagesToExclude) {
+                if (packageName.equals(systemPackage)) {
+                    isSystemByName = true;
+                    break;
+                }
+            }
+            if (isSystemByName) {
+                continue;
+            }
+            
+            // Пропускаем системные приложения по префиксу
+            boolean isSystemByPrefix = false;
+            for (String prefix : systemPackagePrefixes) {
+                if (packageName.startsWith(prefix)) {
+                    isSystemByPrefix = true;
+                    break;
+                }
+            }
+            if (isSystemByPrefix) {
+                continue;
+            }
+            
+            String appName = pm.getApplicationLabel(appInfo).toString();
+            apps.add(new BlockedApp(packageName, appName, "permanent"));
         }
         
         // Sort by name
