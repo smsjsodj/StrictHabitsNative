@@ -2,6 +2,7 @@ package com.stricthabits.app;
 
 import android.accessibilityservice.AccessibilityService;
 import android.content.SharedPreferences;
+import android.os.Build;
 import android.util.Log;
 import android.view.accessibility.AccessibilityEvent;
 import org.json.JSONArray;
@@ -112,23 +113,18 @@ public class AppBlockAccessibilityService extends AccessibilityService {
         try {
             Log.d(TAG, "Starting to block app: " + packageName);
             
-            android.content.Intent intent = new android.content.Intent(this, BlockDialogActivity.class);
-            intent.setFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK 
-                    | android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP
-                    | android.content.Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS);
-            intent.putExtra("package_name", packageName);
-            startActivity(intent);
+            // Используем overlay сервис вместо Activity
+            android.content.Intent overlayIntent = new android.content.Intent(this, LockOverlayService.class);
+            overlayIntent.putExtra("package_name", packageName);
             
-            Log.d(TAG, "BlockDialogActivity started");
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(overlayIntent);
+            } else {
+                startService(overlayIntent);
+            }
             
-            // Возвращаемся в главное приложение
-            Thread.sleep(100);
-            android.content.Intent homeIntent = new android.content.Intent(android.content.Intent.ACTION_MAIN);
-            homeIntent.addCategory(android.content.Intent.CATEGORY_HOME);
-            homeIntent.setFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
-            startActivity(homeIntent);
+            Log.d(TAG, "LockOverlayService started for: " + packageName);
             
-            Log.d(TAG, "Returned to home screen");
         } catch (Exception e) {
             Log.e(TAG, "Error blocking app", e);
             e.printStackTrace();
