@@ -85,8 +85,7 @@ public class MainActivity extends AppCompatActivity {
         updateOverlayButton();
         requestExactAlarmPermission();
         requestNotificationPermission();
-        requestUsageStatsPermission();
-        startAppBlockService();
+        requestAccessibilityPermission();
     }
 
     @Override
@@ -661,6 +660,9 @@ public class MainActivity extends AppCompatActivity {
         
         btnAdd.setOnClickListener(v -> showSelectAppDialog());
         
+        Button btnAddAll = view.findViewById(R.id.btnAddAllApps);
+        btnAddAll.setOnClickListener(v -> addAllAppsToBlocked());
+        
         builder.setView(view);
         builder.setNegativeButton("Закрыть", null);
         builder.show();
@@ -679,6 +681,30 @@ public class MainActivity extends AppCompatActivity {
                 .setItems(appNames, (dialog, which) -> {
                     BlockedApp selected = availableApps.get(which);
                     showBlockTypeDialog(selected);
+                })
+                .setNegativeButton("Отмена", null)
+                .show();
+    }
+
+    private void addAllAppsToBlocked() {
+        List<BlockedApp> allApps = getInstalledApps();
+        
+        if (allApps.isEmpty()) {
+            Toast.makeText(this, "Нет приложений для добавления", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        
+        new AlertDialog.Builder(this)
+                .setTitle("Добавить все приложения?")
+                .setMessage("Это добавит " + allApps.size() + " приложений в постоянную блокировку.\n\nЭто позволит открывать только приложения из белого списка.")
+                .setPositiveButton("Добавить всё", (dialog, which) -> {
+                    for (BlockedApp app : allApps) {
+                        app.setBlockType("permanent");
+                        blockedAppList.add(app);
+                    }
+                    saveBlockedApps();
+                    Toast.makeText(MainActivity.this, "Добавлено " + allApps.size() + " приложений", Toast.LENGTH_SHORT).show();
+                    showBlockedAppsDialog(); // Перезагрузим диалог
                 })
                 .setNegativeButton("Отмена", null)
                 .show();
@@ -771,20 +797,10 @@ public class MainActivity extends AppCompatActivity {
         return apps;
     }
 
-    private void requestUsageStatsPermission() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            Intent intent = new Intent(android.provider.Settings.ACTION_USAGE_ACCESS_SETTINGS);
-            startActivity(intent);
-        }
-    }
-
-    private void startAppBlockService() {
-        Intent intent = new Intent(this, AppBlockService.class);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            startForegroundService(intent);
-        } else {
-            startService(intent);
-        }
+    private void requestAccessibilityPermission() {
+        Intent intent = new Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS);
+        startActivity(intent);
+        Toast.makeText(this, "Пожалуйста, включите 'Strict Habits' в Accessibility Services", Toast.LENGTH_LONG).show();
     }
 
     // --------- Whitelisted Apps Management ---------

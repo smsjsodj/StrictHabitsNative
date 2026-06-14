@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">Strict Habits</string>
+    <string name="accessibility_service_description">Strict Habits - сервис блокировки приложений</string>
 </resources>
