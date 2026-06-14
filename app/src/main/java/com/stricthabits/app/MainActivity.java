@@ -36,6 +36,8 @@ public class MainActivity extends AppCompatActivity {
     private final List<Habit> habitList = new ArrayList<>();
     private SharedPreferences prefs;
     private final List<BlockPeriod> blockList = new ArrayList<>();
+    private final List<BlockedApp> blockedAppList = new ArrayList<>();
+    private final List<WhitelistedApp> whitelistedAppList = new ArrayList<>();
     private final BroadcastReceiver habitsUpdatedReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
@@ -68,11 +70,23 @@ public class MainActivity extends AppCompatActivity {
         findViewById(R.id.btnAddHabit).setOnClickListener(v -> showHabitDialog(-1));
         findViewById(R.id.btnManageBlocks).setOnClickListener(v -> showBlocksDialog());
 
+        Button btnBlockedApps = findViewById(R.id.btnBlockedApps);
+        if (btnBlockedApps != null) {
+            btnBlockedApps.setOnClickListener(v -> showBlockedAppsDialog());
+        }
+
+        Button btnWhitelistedApps = findViewById(R.id.btnWhitelistedApps);
+        if (btnWhitelistedApps != null) {
+            btnWhitelistedApps.setOnClickListener(v -> showWhitelistedAppsDialog());
+        }
+
         View btnOverlay = findViewById(R.id.btnRequestOverlay);
         btnOverlay.setOnClickListener(v -> requestOverlayPermission());
         updateOverlayButton();
         requestExactAlarmPermission();
         requestNotificationPermission();
+        requestUsageStatsPermission();
+        startAppBlockService();
     }
 
     @Override
@@ -291,6 +305,7 @@ public class MainActivity extends AppCompatActivity {
                 habitList.add(habit);
             }
             loadBlocks();
+            loadWhitelistedApps();
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -575,5 +590,310 @@ public class MainActivity extends AppCompatActivity {
                 })
                 .setNegativeButton("Отмена", null)
                 .show();
+    }
+
+    // --------- Blocked Apps Management ---------
+    private void loadBlockedApps() {
+        try {
+            String json = prefs.getString("blocked_apps", "[]");
+            JSONArray arr = new JSONArray(json);
+            blockedAppList.clear();
+            for (int i = 0; i < arr.length(); i++) {
+                JSONObject obj = arr.getJSONObject(i);
+                BlockedApp app = new BlockedApp(
+                        obj.getString("packageName"),
+                        obj.getString("appName"),
+                        obj.optString("blockType", "permanent")
+                );
+                app.setEnabled(obj.optBoolean("enabled", true));
+                app.setStartTime(obj.optString("startTime", "00:00"));
+                app.setEndTime(obj.optString("endTime", "23:59"));
+                blockedAppList.add(app);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void saveBlockedApps() {
+        try {
+            JSONArray arr = new JSONArray();
+            for (BlockedApp app : blockedAppList) {
+                JSONObject obj = new JSONObject();
+                obj.put("packageName", app.getPackageName());
+                obj.put("appName", app.getAppName());
+                obj.put("blockType", app.getBlockType());
+                obj.put("enabled", app.isEnabled());
+                obj.put("startTime", app.getStartTime());
+                obj.put("endTime", app.getEndTime());
+                arr.put(obj);
+            }
+            prefs.edit().putString("blocked_apps", arr.toString()).apply();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void showBlockedAppsDialog() {
+        loadBlockedApps();
+        
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Заблокированные приложения");
+        
+        View view = getLayoutInflater().inflate(R.layout.dialog_blocked_apps, null);
+        RecyclerView recyclerView = view.findViewById(R.id.blockedAppsRecycler);
+        Button btnAdd = view.findViewById(R.id.btnAddBlockedApp);
+        
+        recyclerView.setLayoutManager(new LinearLayoutManager(this));
+        BlockedAppAdapter adapter = new BlockedAppAdapter(
+                blockedAppList,
+                this,
+                app -> {
+                    blockedAppList.remove(app);
+                    saveBlockedApps();
+                    adapter.notifyDataSetChanged();
+                    Toast.makeText(this, "Приложение удалено из списка блокировок", Toast.LENGTH_SHORT).show();
+                },
+                (app, enabled) -> saveBlockedApps()
+        );
+        recyclerView.setAdapter(adapter);
+        
+        btnAdd.setOnClickListener(v -> showSelectAppDialog());
+        
+        builder.setView(view);
+        builder.setNegativeButton("Закрыть", null);
+        builder.show();
+    }
+
+    private void showSelectAppDialog() {
+        List<BlockedApp> availableApps = getInstalledApps();
+        String[] appNames = new String[availableApps.size()];
+        
+        for (int i = 0; i < availableApps.size(); i++) {
+            appNames[i] = availableApps.get(i).getAppName();
+        }
+        
+        new AlertDialog.Builder(this)
+                .setTitle("Выбрать приложение для блокировки")
+                .setItems(appNames, (dialog, which) -> {
+                    BlockedApp selected = availableApps.get(which);
+                    showBlockTypeDialog(selected);
+                })
+                .setNegativeButton("Отмена", null)
+                .show();
+    }
+
+    private void showBlockTypeDialog(BlockedApp app) {
+        String[] blockTypes = {"Постоянно", "По времени"};
+        
+        new AlertDialog.Builder(this)
+                .setTitle("Тип блокировки для " + app.getAppName())
+                .setItems(blockTypes, (dialog, which) -> {
+                    if (which == 0) {
+                        app.setBlockType("permanent");
+                        blockedAppList.add(app);
+                        saveBlockedApps();
+                        Toast.makeText(this, app.getAppName() + " добавлено в постоянную блокировку", Toast.LENGTH_SHORT).show();
+                    } else {
+                        showTimeRangeDialog(app);
+                    }
+                })
+                .setNegativeButton("Отмена", null)
+                .show();
+    }
+
+    private void showTimeRangeDialog(BlockedApp app) {
+        View view = getLayoutInflater().inflate(R.layout.dialog_block_time, null);
+        Button btnStart = view.findViewById(R.id.btnBlockStartTime);
+        Button btnEnd = view.findViewById(R.id.btnBlockEndTime);
+        
+        int[] startHour = {9};
+        int[] startMinute = {0};
+        int[] endHour = {17};
+        int[] endMinute = {0};
+        
+        btnStart.setText("09:00");
+        btnEnd.setText("17:00");
+        
+        btnStart.setOnClickListener(v -> new TimePickerDialog(this,
+                (view1, hourOfDay, minuteOfHour) -> {
+                    startHour[0] = hourOfDay;
+                    startMinute[0] = minuteOfHour;
+                    btnStart.setText(String.format(Locale.getDefault(), "%02d:%02d", startHour[0], startMinute[0]));
+                }, startHour[0], startMinute[0], true).show());
+        
+        btnEnd.setOnClickListener(v -> new TimePickerDialog(this,
+                (view1, hourOfDay, minuteOfHour) -> {
+                    endHour[0] = hourOfDay;
+                    endMinute[0] = minuteOfHour;
+                    btnEnd.setText(String.format(Locale.getDefault(), "%02d:%02d", endHour[0], endMinute[0]));
+                }, endHour[0], endMinute[0], true).show());
+        
+        new AlertDialog.Builder(this)
+                .setTitle("Время блокировки")
+                .setView(view)
+                .setPositiveButton("Сохранить", (dialog, which) -> {
+                    String start = String.format(Locale.getDefault(), "%02d:%02d", startHour[0], startMinute[0]);
+                    String end = String.format(Locale.getDefault(), "%02d:%02d", endHour[0], endMinute[0]);
+                    app.setBlockType("time_based");
+                    app.setStartTime(start);
+                    app.setEndTime(end);
+                    blockedAppList.add(app);
+                    saveBlockedApps();
+                    Toast.makeText(this, app.getAppName() + " добавлено с временной блокировкой", Toast.LENGTH_SHORT).show();
+                })
+                .setNegativeButton("Отмена", null)
+                .show();
+    }
+
+    private List<BlockedApp> getInstalledApps() {
+        List<BlockedApp> apps = new ArrayList<>();
+        List<String> blockedPackages = new ArrayList<>();
+        
+        for (BlockedApp blocked : blockedAppList) {
+            blockedPackages.add(blocked.getPackageName());
+        }
+        
+        android.content.pm.PackageManager pm = getPackageManager();
+        List<android.content.pm.ApplicationInfo> packages = pm.getInstalledApplications(0);
+        
+        for (android.content.pm.ApplicationInfo appInfo : packages) {
+            if (!blockedPackages.contains(appInfo.packageName)
+                    && !appInfo.packageName.equals(getPackageName())) {
+                String appName = pm.getApplicationLabel(appInfo).toString();
+                apps.add(new BlockedApp(appInfo.packageName, appName, "permanent"));
+            }
+        }
+        
+        // Sort by name
+        apps.sort((a, b) -> a.getAppName().compareTo(b.getAppName()));
+        return apps;
+    }
+
+    private void requestUsageStatsPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            Intent intent = new Intent(android.provider.Settings.ACTION_USAGE_ACCESS_SETTINGS);
+            startActivity(intent);
+        }
+    }
+
+    private void startAppBlockService() {
+        Intent intent = new Intent(this, AppBlockService.class);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundService(intent);
+        } else {
+            startService(intent);
+        }
+    }
+
+    // --------- Whitelisted Apps Management ---------
+    private void loadWhitelistedApps() {
+        try {
+            String json = prefs.getString("whitelisted_apps", "[]");
+            JSONArray arr = new JSONArray(json);
+            whitelistedAppList.clear();
+            for (int i = 0; i < arr.length(); i++) {
+                JSONObject obj = arr.getJSONObject(i);
+                WhitelistedApp app = new WhitelistedApp(
+                        obj.getString("packageName"),
+                        obj.getString("appName")
+                );
+                app.setEnabled(obj.optBoolean("enabled", true));
+                whitelistedAppList.add(app);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void saveWhitelistedApps() {
+        try {
+            JSONArray arr = new JSONArray();
+            for (WhitelistedApp app : whitelistedAppList) {
+                JSONObject obj = new JSONObject();
+                obj.put("packageName", app.getPackageName());
+                obj.put("appName", app.getAppName());
+                obj.put("enabled", app.isEnabled());
+                arr.put(obj);
+            }
+            prefs.edit().putString("whitelisted_apps", arr.toString()).apply();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void showWhitelistedAppsDialog() {
+        loadWhitelistedApps();
+        
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Белый список приложений");
+        
+        View view = getLayoutInflater().inflate(R.layout.dialog_whitelisted_apps, null);
+        RecyclerView recyclerView = view.findViewById(R.id.whitelistedAppsRecycler);
+        Button btnAdd = view.findViewById(R.id.btnAddWhitelistedApp);
+        
+        recyclerView.setLayoutManager(new LinearLayoutManager(this));
+        WhitelistedAppAdapter adapter = new WhitelistedAppAdapter(
+                whitelistedAppList,
+                this,
+                app -> {
+                    whitelistedAppList.remove(app);
+                    saveWhitelistedApps();
+                    adapter.notifyDataSetChanged();
+                    Toast.makeText(this, "Приложение удалено из белого списка", Toast.LENGTH_SHORT).show();
+                },
+                (app, enabled) -> saveWhitelistedApps()
+        );
+        recyclerView.setAdapter(adapter);
+        
+        btnAdd.setOnClickListener(v -> showSelectAppForWhitelistDialog());
+        
+        builder.setView(view);
+        builder.setNegativeButton("Закрыть", null);
+        builder.show();
+    }
+
+    private void showSelectAppForWhitelistDialog() {
+        List<WhitelistedApp> availableApps = getInstalledAppsForWhitelist();
+        String[] appNames = new String[availableApps.size()];
+        
+        for (int i = 0; i < availableApps.size(); i++) {
+            appNames[i] = availableApps.get(i).getAppName();
+        }
+        
+        new AlertDialog.Builder(this)
+                .setTitle("Выбрать приложение для белого списка")
+                .setItems(appNames, (dialog, which) -> {
+                    WhitelistedApp selected = availableApps.get(which);
+                    whitelistedAppList.add(selected);
+                    saveWhitelistedApps();
+                    Toast.makeText(this, selected.getAppName() + " добавлено в белый список", Toast.LENGTH_SHORT).show();
+                })
+                .setNegativeButton("Отмена", null)
+                .show();
+    }
+
+    private List<WhitelistedApp> getInstalledAppsForWhitelist() {
+        List<WhitelistedApp> apps = new ArrayList<>();
+        List<String> whitelistedPackages = new ArrayList<>();
+        
+        for (WhitelistedApp whitelisted : whitelistedAppList) {
+            whitelistedPackages.add(whitelisted.getPackageName());
+        }
+        
+        android.content.pm.PackageManager pm = getPackageManager();
+        List<android.content.pm.ApplicationInfo> packages = pm.getInstalledApplications(0);
+        
+        for (android.content.pm.ApplicationInfo appInfo : packages) {
+            if (!whitelistedPackages.contains(appInfo.packageName)
+                    && !appInfo.packageName.equals(getPackageName())) {
+                String appName = pm.getApplicationLabel(appInfo).toString();
+                apps.add(new WhitelistedApp(appInfo.packageName, appName));
+            }
+        }
+        
+        // Sort by name
+        apps.sort((a, b) -> a.getAppName().compareTo(b.getAppName()));
+        return apps;
     }
 }

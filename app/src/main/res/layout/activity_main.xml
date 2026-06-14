@@ -45,6 +45,20 @@
         android:text="Управление блокировками"/>
 
     <Button
+        android:id="@+id/btnBlockedApps"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="🚫 Заблокированные приложения"/>
+
+    <Button
+        android:id="@+id/btnWhitelistedApps"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="✓ Белый список приложений"/>
+
+    <Button
         android:id="@+id/btnRequestOverlay"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
