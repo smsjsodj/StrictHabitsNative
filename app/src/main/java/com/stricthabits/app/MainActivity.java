@@ -53,10 +53,15 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         prefs = getSharedPreferences("habits", MODE_PRIVATE);
-        syncManager = new SyncManager(this);
 
-        // Импортируем данные из файла синхронизации если есть
-        syncManager.importFromSyncFile();
+        try {
+            syncManager = new SyncManager(this);
+            // Импортируем данные из файла синхронизации если есть
+            syncManager.importFromSyncFile();
+        } catch (Exception e) {
+            Log.e("MainActivity", "Error initializing sync", e);
+            syncManager = null;
+        }
 
         loadHabits();
         scheduleAllHabits();
@@ -1183,26 +1188,30 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void syncWithDesktop() {
-        if (syncManager == null) {
-            Toast.makeText(this, "Ошибка инициализации синхронизации", Toast.LENGTH_SHORT).show();
-            return;
-        }
+        try {
+            if (syncManager == null) {
+                syncManager = new SyncManager(this);
+            }
 
-        // Сначала экспортируем текущие данные
-        boolean exported = syncManager.exportToSyncFile();
+            // Сначала экспортируем текущие данные
+            boolean exported = syncManager.exportToSyncFile();
 
-        // Затем импортируем обновления с desktop
-        boolean imported = syncManager.importFromSyncFile();
+            // Затем импортируем обновления с desktop
+            boolean imported = syncManager.importFromSyncFile();
 
-        if (exported && imported) {
-            loadHabits();
-            scheduleAllHabits();
-            refreshHabits();
-            Toast.makeText(this, "Синхронизация завершена!\nФайл: " + syncManager.getSyncFilePath(), Toast.LENGTH_LONG).show();
-        } else if (exported) {
-            Toast.makeText(this, "Данные экспортированы в:\n" + syncManager.getSyncFilePath(), Toast.LENGTH_LONG).show();
-        } else {
-            Toast.makeText(this, "Ошибка синхронизации", Toast.LENGTH_SHORT).show();
+            if (exported && imported) {
+                loadHabits();
+                scheduleAllHabits();
+                refreshHabits();
+                Toast.makeText(this, "Синхронизация завершена!\nФайл: " + syncManager.getSyncFilePath(), Toast.LENGTH_LONG).show();
+            } else if (exported) {
+                Toast.makeText(this, "Данные экспортированы в:\n" + syncManager.getSyncFilePath(), Toast.LENGTH_LONG).show();
+            } else {
+                Toast.makeText(this, "Ошибка синхронизации", Toast.LENGTH_SHORT).show();
+            }
+        } catch (Exception e) {
+            Log.e("MainActivity", "Sync error", e);
+            Toast.makeText(this, "Ошибка синхронизации: " + e.getMessage(), Toast.LENGTH_LONG).show();
         }
     }
 }
