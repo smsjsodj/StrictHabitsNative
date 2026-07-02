@@ -20,8 +20,12 @@ public class AppBlockAccessibilityService extends AccessibilityService {
     @Override
     public void onCreate() {
         super.onCreate();
-        prefs = getSharedPreferences("habits", MODE_PRIVATE);
-        Log.d(TAG, "AppBlockAccessibilityService CREATED");
+        try {
+            prefs = getSharedPreferences("habits", MODE_PRIVATE);
+            Log.d(TAG, "AppBlockAccessibilityService CREATED");
+        } catch (Exception e) {
+            Log.e(TAG, "Error creating SharedPreferences", e);
+        }
     }
 
     @Override
@@ -32,31 +36,37 @@ public class AppBlockAccessibilityService extends AccessibilityService {
 
     @Override
     public void onAccessibilityEvent(AccessibilityEvent event) {
-        String packageName = event.getPackageName() != null ? event.getPackageName().toString() : null;
-        int eventType = event.getEventType();
-        
-        Log.d(TAG, "Accessibility Event - Type: " + eventType + ", Package: " + packageName);
-        
-        // Обрабатываем несколько типов событий для перехвата приложений
-        if ((eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED ||
-             eventType == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED) &&
-            packageName != null && !packageName.equals(getPackageName())) {
-            
-            long currentTime = System.currentTimeMillis();
-            long lastBlockTime = lastBlockTimeByApp.getOrDefault(packageName, 0L);
-            
-            if (currentTime - lastBlockTime > BLOCK_COOLDOWN) {
-                Log.d(TAG, "Checking if blocked: " + packageName + " (last block was " + (currentTime - lastBlockTime) + "ms ago)");
-                if (isAppBlocked(packageName)) {
-                    Log.d(TAG, "App is BLOCKED, blocking now: " + packageName);
-                    lastBlockTimeByApp.put(packageName, currentTime);
-                    blockApp(packageName);
+        try {
+            if (event == null) return;
+
+            String packageName = event.getPackageName() != null ? event.getPackageName().toString() : null;
+            int eventType = event.getEventType();
+
+            Log.d(TAG, "Accessibility Event - Type: " + eventType + ", Package: " + packageName);
+
+            // Обрабатываем несколько типов событий для перехвата приложений
+            if ((eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED ||
+                 eventType == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED) &&
+                packageName != null && !packageName.equals(getPackageName())) {
+
+                long currentTime = System.currentTimeMillis();
+                long lastBlockTime = lastBlockTimeByApp.getOrDefault(packageName, 0L);
+
+                if (currentTime - lastBlockTime > BLOCK_COOLDOWN) {
+                    Log.d(TAG, "Checking if blocked: " + packageName + " (last block was " + (currentTime - lastBlockTime) + "ms ago)");
+                    if (isAppBlocked(packageName)) {
+                        Log.d(TAG, "App is BLOCKED, blocking now: " + packageName);
+                        lastBlockTimeByApp.put(packageName, currentTime);
+                        blockApp(packageName);
+                    } else {
+                        Log.d(TAG, "App is NOT blocked: " + packageName);
+                    }
                 } else {
-                    Log.d(TAG, "App is NOT blocked: " + packageName);
+                    Log.d(TAG, "Cooldown not finished for " + packageName + " (need " + (BLOCK_COOLDOWN - (currentTime - lastBlockTime)) + "ms more)");
                 }
-            } else {
-                Log.d(TAG, "Cooldown not finished for " + packageName + " (need " + (BLOCK_COOLDOWN - (currentTime - lastBlockTime)) + "ms more)");
             }
+        } catch (Exception e) {
+            Log.e(TAG, "Error in onAccessibilityEvent", e);
         }
     }
 
@@ -66,29 +76,48 @@ public class AppBlockAccessibilityService extends AccessibilityService {
     }
 
     private boolean isAppBlocked(String packageName) {
-        // Проверяем белый список первым
-        if (isAppWhitelisted(packageName)) {
-            Log.d(TAG, "App is WHITELISTED: " + packageName);
-            return false;
-        }
-
         try {
+            if (packageName == null || packageName.isEmpty()) {
+                return false;
+            }
+
+            // Проверяем белый список первым
+            if (isAppWhitelisted(packageName)) {
+                Log.d(TAG, "App is WHITELISTED: " + packageName);
+                return false;
+            }
+
+            if (prefs == null) {
+                Log.e(TAG, "SharedPreferences is null");
+                return false;
+            }
+
             String blockedAppsJson = prefs.getString("blocked_apps", "[]");
+            if (blockedAppsJson == null || blockedAppsJson.isEmpty()) {
+                blockedAppsJson = "[]";
+            }
+
             JSONArray blockedApps = new JSONArray(blockedAppsJson);
             Log.d(TAG, "Total blocked apps: " + blockedApps.length());
 
             for (int i = 0; i < blockedApps.length(); i++) {
-                JSONObject app = blockedApps.getJSONObject(i);
-                String blockPackageName = app.getString("packageName");
-                boolean isEnabled = app.getBoolean("enabled");
-                
-                if (blockPackageName.equals(packageName) && isEnabled) {
-                    BlockedApp blockedApp = jsonToBlockedApp(app);
-                    boolean blockedNow = blockedApp.isBlockedNow();
-                    Log.d(TAG, "Found blocked app: " + packageName + ", blockedNow=" + blockedNow);
-                    if (blockedNow) {
-                        return true;
+                try {
+                    JSONObject app = blockedApps.getJSONObject(i);
+                    String blockPackageName = app.optString("packageName", "");
+                    boolean isEnabled = app.optBoolean("enabled", true);
+
+                    if (blockPackageName.equals(packageName) && isEnabled) {
+                        BlockedApp blockedApp = jsonToBlockedApp(app);
+                        if (blockedApp != null) {
+                            boolean blockedNow = blockedApp.isBlockedNow();
+                            Log.d(TAG, "Found blocked app: " + packageName + ", blockedNow=" + blockedNow);
+                            if (blockedNow) {
+                                return true;
+                            }
+                        }
                     }
+                } catch (Exception e) {
+                    Log.e(TAG, "Error processing blocked app at index " + i, e);
                 }
             }
         } catch (Exception e) {
@@ -99,18 +128,35 @@ public class AppBlockAccessibilityService extends AccessibilityService {
 
     private boolean isAppWhitelisted(String packageName) {
         try {
+            if (packageName == null || packageName.isEmpty()) {
+                return false;
+            }
+
+            if (prefs == null) {
+                Log.e(TAG, "SharedPreferences is null in isAppWhitelisted");
+                return false;
+            }
+
             String whitelistedAppsJson = prefs.getString("whitelisted_apps", "[]");
+            if (whitelistedAppsJson == null || whitelistedAppsJson.isEmpty()) {
+                whitelistedAppsJson = "[]";
+            }
+
             JSONArray whitelistedApps = new JSONArray(whitelistedAppsJson);
             Log.d(TAG, "Total whitelisted apps: " + whitelistedApps.length());
 
             for (int i = 0; i < whitelistedApps.length(); i++) {
-                JSONObject app = whitelistedApps.getJSONObject(i);
-                String whitePackageName = app.getString("packageName");
-                boolean isEnabled = app.getBoolean("enabled");
-                
-                if (whitePackageName.equals(packageName) && isEnabled) {
-                    Log.d(TAG, "App is in whitelist: " + packageName);
-                    return true;
+                try {
+                    JSONObject app = whitelistedApps.getJSONObject(i);
+                    String whitePackageName = app.optString("packageName", "");
+                    boolean isEnabled = app.optBoolean("enabled", true);
+
+                    if (whitePackageName.equals(packageName) && isEnabled) {
+                        Log.d(TAG, "App is in whitelist: " + packageName);
+                        return true;
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "Error processing whitelisted app at index " + i, e);
                 }
             }
         } catch (Exception e) {
@@ -121,39 +167,52 @@ public class AppBlockAccessibilityService extends AccessibilityService {
 
     private void blockApp(String packageName) {
         try {
+            if (packageName == null || packageName.isEmpty()) {
+                Log.e(TAG, "Cannot block app with null/empty package name");
+                return;
+            }
+
             Log.d(TAG, "Starting to block app: " + packageName);
-            
+
             // Используем overlay сервис вместо Activity
             android.content.Intent overlayIntent = new android.content.Intent(this, LockOverlayService.class);
             overlayIntent.putExtra("package_name", packageName);
-            
+
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 startForegroundService(overlayIntent);
             } else {
                 startService(overlayIntent);
             }
-            
+
             Log.d(TAG, "LockOverlayService started for: " + packageName);
-            
+
         } catch (Exception e) {
-            Log.e(TAG, "Error blocking app", e);
-            e.printStackTrace();
+            Log.e(TAG, "Error blocking app: " + packageName, e);
         }
     }
 
     private BlockedApp jsonToBlockedApp(JSONObject json) {
         try {
-            BlockedApp app = new BlockedApp(
-                    json.getString("packageName"),
-                    json.getString("appName"),
-                    json.getString("blockType")
-            );
+            if (json == null) {
+                return null;
+            }
+
+            String packageName = json.optString("packageName", "");
+            String appName = json.optString("appName", "Unknown");
+            String blockType = json.optString("blockType", "permanent");
+
+            if (packageName.isEmpty()) {
+                Log.e(TAG, "Empty package name in blocked app JSON");
+                return null;
+            }
+
+            BlockedApp app = new BlockedApp(packageName, appName, blockType);
             app.setStartTime(json.optString("startTime", "00:00"));
             app.setEndTime(json.optString("endTime", "23:59"));
-            app.setEnabled(json.getBoolean("enabled"));
+            app.setEnabled(json.optBoolean("enabled", true));
             return app;
         } catch (Exception e) {
-            e.printStackTrace();
+            Log.e(TAG, "Error converting JSON to BlockedApp", e);
             return null;
         }
     }

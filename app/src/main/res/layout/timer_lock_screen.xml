@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#FF6F00"
+    android:padding="32dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_centerInParent="true"
+        android:orientation="vertical"
+        android:gravity="center">
+
+        <TextView
+            android:id="@+id/tvTimerLockName"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Таймер-блокировка"
+            android:textSize="32sp"
+            android:textStyle="bold"
+            android:textColor="#FFFFFF"
+            android:gravity="center"
+            android:layout_marginBottom="48dp"/>
+
+        <TextView
+            android:id="@+id/tvTimerCountdown"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="20:00"
+            android:textSize="96sp"
+            android:textStyle="bold"
+            android:textColor="#FFFFFF"
+            android:fontFamily="monospace"
+            android:layout_marginBottom="24dp"/>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Телефон заблокирован"
+            android:textSize="18sp"
+            android:textColor="#FFFFFF"
+            android:alpha="0.9"
+            android:layout_marginBottom="8dp"/>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Дождитесь окончания таймера"
+            android:textSize="16sp"
+            android:textColor="#FFFFFF"
+            android:alpha="0.8"/>
+
+    </LinearLayout>
+
+</RelativeLayout>

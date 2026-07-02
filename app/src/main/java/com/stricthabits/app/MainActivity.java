@@ -81,6 +81,11 @@ public class MainActivity extends AppCompatActivity {
             btnWhitelistedApps.setOnClickListener(v -> showWhitelistedAppsDialog());
         }
 
+        Button btnTimerLock = findViewById(R.id.btnTimerLock);
+        if (btnTimerLock != null) {
+            btnTimerLock.setOnClickListener(v -> showTimerLockDialog());
+        }
+
         View btnOverlay = findViewById(R.id.btnRequestOverlay);
         btnOverlay.setOnClickListener(v -> requestOverlayPermission());
         updateOverlayButton();
@@ -881,6 +886,15 @@ public class MainActivity extends AppCompatActivity {
             String json = prefs.getString("whitelisted_apps", "[]");
             JSONArray arr = new JSONArray(json);
             whitelistedAppList.clear();
+
+            // Если белый список пустой, добавляем дефолтные приложения
+            if (arr.length() == 0) {
+                addDefaultWhitelistedApps();
+                saveWhitelistedApps();
+                json = prefs.getString("whitelisted_apps", "[]");
+                arr = new JSONArray(json);
+            }
+
             for (int i = 0; i < arr.length(); i++) {
                 JSONObject obj = arr.getJSONObject(i);
                 WhitelistedApp app = new WhitelistedApp(
@@ -892,6 +906,82 @@ public class MainActivity extends AppCompatActivity {
             }
         } catch (Exception e) {
             e.printStackTrace();
+        }
+    }
+
+    private void addDefaultWhitelistedApps() {
+        // Образовательные и полезные приложения
+        String[] defaultApps = {
+                "com.openai.chatgpt", "ChatGPT",
+                "com.deepseek.app", "DeepSeek",
+                "ai.deepseek.app", "DeepSeek",
+                "com.anthropic.claude", "Claude",
+                "com.google.android.apps.docs", "Google Docs",
+                "com.google.android.apps.docs.editors.docs", "Google Docs",
+                "com.google.android.apps.docs.editors.sheets", "Google Sheets",
+                "com.google.android.apps.docs.editors.slides", "Google Slides",
+                "com.microsoft.office.word", "Microsoft Word",
+                "com.microsoft.office.excel", "Microsoft Excel",
+                "com.microsoft.office.powerpoint", "Microsoft PowerPoint",
+                "com.evernote", "Evernote",
+                "com.google.android.apps.books", "Google Play Books",
+                "com.amazon.kindle", "Kindle",
+                "org.librera.reader", "Librera",
+                "com.duolingo", "Duolingo",
+                "com.khanacademy.android", "Khan Academy",
+                "com.coursera.android", "Coursera",
+                "com.udemy.android", "Udemy",
+                "com.google.android.apps.maps", "Google Maps",
+                "com.google.android.apps.translate", "Google Translate",
+                "com.google.android.youtube", "YouTube",
+                "com.google.android.apps.youtube.music", "YouTube Music",
+                "com.spotify.music", "Spotify",
+                "com.google.android.calculator", "Calculator",
+                "com.google.android.calendar", "Calendar",
+                "com.google.android.apps.tasks", "Google Tasks",
+                "com.todoist", "Todoist",
+                "com.microsoft.todos", "Microsoft To Do",
+                "org.mozilla.firefox", "Firefox",
+                "com.android.chrome", "Chrome",
+                "com.microsoft.emmx", "Microsoft Edge",
+                "com.google.android.gm", "Gmail",
+                "com.microsoft.office.outlook", "Outlook",
+                "com.whatsapp", "WhatsApp",
+                "org.telegram.messenger", "Telegram",
+                "com.discord", "Discord",
+                "us.zoom.videomeetings", "Zoom",
+                "com.microsoft.teams", "Microsoft Teams",
+                "com.google.android.apps.messaging", "Messages",
+                "com.android.camera", "Camera",
+                "com.android.camera2", "Camera",
+                "com.google.android.GoogleCamera", "Google Camera",
+                "com.sec.android.app.camera", "Samsung Camera",
+                "com.android.contacts", "Contacts",
+                "com.google.android.contacts", "Contacts",
+                "com.android.vending", "Google Play Store",
+                "com.android.settings", "Settings",
+                "com.stricthabits.app", "Strict Habits"
+        };
+
+        for (int i = 0; i < defaultApps.length; i += 2) {
+            String packageName = defaultApps[i];
+            String appName = defaultApps[i + 1];
+
+            // Проверяем, установлено ли приложение
+            if (isAppInstalled(packageName)) {
+                WhitelistedApp app = new WhitelistedApp(packageName, appName);
+                app.setEnabled(true);
+                whitelistedAppList.add(app);
+            }
+        }
+    }
+
+    private boolean isAppInstalled(String packageName) {
+        try {
+            getPackageManager().getApplicationInfo(packageName, 0);
+            return true;
+        } catch (Exception e) {
+            return false;
         }
     }
 
@@ -1019,5 +1109,65 @@ public class MainActivity extends AppCompatActivity {
         // Sort by name
         apps.sort((a, b) -> a.getAppName().compareTo(b.getAppName()));
         return apps;
+    }
+
+    private void showTimerLockDialog() {
+        View view = getLayoutInflater().inflate(R.layout.dialog_timer_lock, null);
+        EditText etName = view.findViewById(R.id.etTimerName);
+        EditText etMinutes = view.findViewById(R.id.etTimerMinutes);
+
+        new AlertDialog.Builder(this)
+                .setTitle("Таймер-блокировка")
+                .setView(view)
+                .setPositiveButton("Запустить", (dialog, which) -> {
+                    String name = etName.getText().toString().trim();
+                    String minutesStr = etMinutes.getText().toString().trim();
+
+                    if (name.isEmpty()) {
+                        Toast.makeText(this, "Введите название", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+
+                    if (minutesStr.isEmpty()) {
+                        Toast.makeText(this, "Введите длительность", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+
+                    int minutes;
+                    try {
+                        minutes = Integer.parseInt(minutesStr);
+                        if (minutes <= 0 || minutes > 1440) {
+                            Toast.makeText(this, "Длительность должна быть от 1 до 1440 минут", Toast.LENGTH_SHORT).show();
+                            return;
+                        }
+                    } catch (NumberFormatException e) {
+                        Toast.makeText(this, "Неверный формат числа", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
+                        Toast.makeText(this, "Для таймер-блокировки нужно разрешение поверх окон", Toast.LENGTH_LONG).show();
+                        requestOverlayPermission();
+                        return;
+                    }
+
+                    startTimerLock(name, minutes);
+                })
+                .setNegativeButton("Отмена", null)
+                .show();
+    }
+
+    private void startTimerLock(String name, int minutes) {
+        Intent intent = new Intent(this, TimerLockService.class);
+        intent.putExtra("lock_name", name);
+        intent.putExtra("duration_minutes", minutes);
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundService(intent);
+        } else {
+            startService(intent);
+        }
+
+        Toast.makeText(this, "Таймер запущен: " + minutes + " мин", Toast.LENGTH_SHORT).show();
     }
 }

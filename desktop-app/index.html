@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Strict Habits - Desktop</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        h1 {
+            color: #D32F2F;
+            margin-bottom: 30px;
+            font-size: 36px;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #eee;
+        }
+
+        .tab {
+            padding: 15px 30px;
+            cursor: pointer;
+            border: none;
+            background: none;
+            font-size: 16px;
+            color: #666;
+            transition: all 0.3s;
+        }
+
+        .tab.active {
+            color: #667eea;
+            border-bottom: 3px solid #667eea;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin: 5px;
+        }
+
+        .button-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .button-primary:hover {
+            background: #5568d3;
+        }
+
+        .button-danger {
+            background: #D32F2F;
+            color: white;
+        }
+
+        .button-danger:hover {
+            background: #b71c1c;
+        }
+
+        .button-success {
+            background: #4CAF50;
+            color: white;
+        }
+
+        .button-success:hover {
+            background: #45a049;
+        }
+
+        .habit-list, .block-list {
+            margin-top: 20px;
+        }
+
+        .habit-item, .block-item {
+            background: #f5f5f5;
+            padding: 20px;
+            margin-bottom: 15px;
+            border-radius: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .habit-info, .block-info {
+            flex: 1;
+        }
+
+        .habit-name, .block-time {
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .habit-time, .block-days {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .habit-actions, .block-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .status {
+            padding: 10px 20px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            display: block;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            display: block;
+        }
+
+        .sync-info {
+            text-align: center;
+            padding: 15px;
+            background: #e3f2fd;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        input, select {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+            width: 100%;
+            margin: 5px 0;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            max-width: 500px;
+            width: 90%;
+        }
+
+        .modal-header {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+
+        .checkbox-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .checkbox-group label {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-weight: normal;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Strict Habits</h1>
+
+        <div class="sync-info">
+            <p>🔄 Синхронизация с мобильным приложением активна</p>
+        </div>
+
+        <div id="status" class="status"></div>
+
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab('habits')">Привычки</button>
+            <button class="tab" onclick="switchTab('blocks')">Блокировки</button>
+            <button class="tab" onclick="switchTab('settings')">Настройки</button>
+        </div>
+
+        <div id="habits" class="tab-content active">
+            <button class="button button-primary" onclick="showAddHabitModal()">+ Добавить привычку</button>
+            <button class="button button-success" onclick="syncData()">🔄 Синхронизировать</button>
+            <div id="habitList" class="habit-list"></div>
+        </div>
+
+        <div id="blocks" class="tab-content">
+            <button class="button button-primary" onclick="showAddBlockModal()">+ Добавить блокировку</button>
+            <button class="button button-success" onclick="syncData()">🔄 Синхронизировать</button>
+            <div id="blockList" class="block-list"></div>
+        </div>
+
+        <div id="settings" class="tab-content">
+            <h2>Настройки синхронизации</h2>
+            <p>Для синхронизации с мобильным приложением используется Firebase Realtime Database.</p>
+            <p>Настройте Firebase в файле main.js и перезапустите приложение.</p>
+        </div>
+    </div>
+
+    <!-- Modal for adding habit -->
+    <div id="habitModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">Новая привычка</div>
+            <div class="form-group">
+                <label>Название:</label>
+                <input type="text" id="habitName" placeholder="Например: Зарядка">
+            </div>
+            <div class="form-group">
+                <label>Время:</label>
+                <input type="time" id="habitTime">
+            </div>
+            <div class="form-group">
+                <label>Дни недели:</label>
+                <div class="checkbox-group">
+                    <label><input type="checkbox" id="dayMon" checked> Пн</label>
+                    <label><input type="checkbox" id="dayTue" checked> Вт</label>
+                    <label><input type="checkbox" id="dayWed" checked> Ср</label>
+                    <label><input type="checkbox" id="dayThu" checked> Чт</label>
+                    <label><input type="checkbox" id="dayFri" checked> Пт</label>
+                    <label><input type="checkbox" id="daySat"> Сб</label>
+                    <label><input type="checkbox" id="daySun"> Вс</label>
+                </div>
+            </div>
+            <div style="display: flex; gap: 10px; margin-top: 20px;">
+                <button class="button button-primary" onclick="saveHabit()">Сохранить</button>
+                <button class="button" onclick="closeModal('habitModal')">Отмена</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for adding block -->
+    <div id="blockModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">Новая блокировка</div>
+            <div class="form-group">
+                <label>Начало:</label>
+                <input type="time" id="blockStart">
+            </div>
+            <div class="form-group">
+                <label>Конец:</label>
+                <input type="time" id="blockEnd">
+            </div>
+            <div class="form-group">
+                <label>Дни недели:</label>
+                <div class="checkbox-group">
+                    <label><input type="checkbox" id="blockDayMon" checked> Пн</label>
+                    <label><input type="checkbox" id="blockDayTue" checked> Вт</label>
+                    <label><input type="checkbox" id="blockDayWed" checked> Ср</label>
+                    <label><input type="checkbox" id="blockDayThu" checked> Чт</label>
+                    <label><input type="checkbox" id="blockDayFri" checked> Пт</label>
+                    <label><input type="checkbox" id="blockDaySat"> Сб</label>
+                    <label><input type="checkbox" id="blockDaySun"> Вс</label>
+                </div>
+            </div>
+            <div style="display: flex; gap: 10px; margin-top: 20px;">
+                <button class="button button-primary" onclick="saveBlock()">Сохранить</button>
+                <button class="button" onclick="closeModal('blockModal')">Отмена</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="renderer.js"></script>
+</body>
+</html>
