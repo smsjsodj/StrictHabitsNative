@@ -39,6 +39,7 @@ public class MainActivity extends AppCompatActivity {
     private final List<BlockPeriod> blockList = new ArrayList<>();
     private final List<BlockedApp> blockedAppList = new ArrayList<>();
     private final List<WhitelistedApp> whitelistedAppList = new ArrayList<>();
+    private SyncManager syncManager;
     private final BroadcastReceiver habitsUpdatedReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
@@ -52,6 +53,11 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         prefs = getSharedPreferences("habits", MODE_PRIVATE);
+        syncManager = new SyncManager(this);
+
+        // Импортируем данные из файла синхронизации если есть
+        syncManager.importFromSyncFile();
+
         loadHabits();
         scheduleAllHabits();
 
@@ -84,6 +90,11 @@ public class MainActivity extends AppCompatActivity {
         Button btnTimerLock = findViewById(R.id.btnTimerLock);
         if (btnTimerLock != null) {
             btnTimerLock.setOnClickListener(v -> showTimerLockDialog());
+        }
+
+        Button btnSync = findViewById(R.id.btnSync);
+        if (btnSync != null) {
+            btnSync.setOnClickListener(v -> syncWithDesktop());
         }
 
         View btnOverlay = findViewById(R.id.btnRequestOverlay);
@@ -1169,5 +1180,29 @@ public class MainActivity extends AppCompatActivity {
         }
 
         Toast.makeText(this, "Таймер запущен: " + minutes + " мин", Toast.LENGTH_SHORT).show();
+    }
+
+    private void syncWithDesktop() {
+        if (syncManager == null) {
+            Toast.makeText(this, "Ошибка инициализации синхронизации", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        // Сначала экспортируем текущие данные
+        boolean exported = syncManager.exportToSyncFile();
+
+        // Затем импортируем обновления с desktop
+        boolean imported = syncManager.importFromSyncFile();
+
+        if (exported && imported) {
+            loadHabits();
+            scheduleAllHabits();
+            refreshHabits();
+            Toast.makeText(this, "Синхронизация завершена!\nФайл: " + syncManager.getSyncFilePath(), Toast.LENGTH_LONG).show();
+        } else if (exported) {
+            Toast.makeText(this, "Данные экспортированы в:\n" + syncManager.getSyncFilePath(), Toast.LENGTH_LONG).show();
+        } else {
+            Toast.makeText(this, "Ошибка синхронизации", Toast.LENGTH_SHORT).show();
+        }
     }
 }

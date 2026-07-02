@@ -68,6 +68,15 @@
         android:textColor="#FFFFFF"/>
 
     <Button
+        android:id="@+id/btnSync"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="🔄 Синхронизация с ПК"
+        android:backgroundTint="#4CAF50"
+        android:textColor="#FFFFFF"/>
+
+    <Button
         android:id="@+id/btnRequestOverlay"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
