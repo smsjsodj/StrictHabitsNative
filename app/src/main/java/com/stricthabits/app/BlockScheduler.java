@@ -73,6 +73,8 @@ public class BlockScheduler {
         startIntent.putExtra("block_start", true);
         startIntent.putExtra("block_start_time", block.getStartTime());
         startIntent.putExtra("block_end_time", block.getEndTime());
+        startIntent.putExtra("block_timer_mode", block.isTimerMode());
+        startIntent.putExtra("block_end_millis", endMillis);
 
         Intent endIntent = new Intent(context, AlarmReceiver.class);
         endIntent.putExtra("block_end", true);

@@ -58,6 +58,8 @@ public class LockService extends Service {
     private boolean telegramReadyForUnlock = false;
     private boolean overlayAdded = false;
     private int lastTelegramUpdateId = 0;
+    private boolean timerMode = false;
+    private long blockEndMillis = 0;
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
@@ -74,6 +76,8 @@ public class LockService extends Service {
             unlockMode = intent.getStringExtra(EXTRA_UNLOCK_MODE);
             if (unlockMode == null) unlockMode = UNLOCK_MODE_PHRASE;
             soundEnabled = intent.getBooleanExtra("sound_enabled", true);
+            timerMode = intent.getBooleanExtra("block_timer_mode", false);
+            blockEndMillis = intent.getLongExtra("block_end_millis", 0);
         }
         isUnlocked = false;
         telegramReadyForUnlock = false;
@@ -103,6 +107,8 @@ public class LockService extends Service {
         fullIntent.putExtra(EXTRA_LOCK_KIND, lockKind);
         fullIntent.putExtra(EXTRA_UNLOCK_MODE, unlockMode);
         fullIntent.putExtra("sound_enabled", soundEnabled);
+        fullIntent.putExtra("block_timer_mode", timerMode);
+        fullIntent.putExtra("block_end_millis", blockEndMillis);
         fullIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
 
         PendingIntent fullPending = PendingIntent.getActivity(this, 0, fullIntent,

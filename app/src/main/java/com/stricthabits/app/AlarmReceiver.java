@@ -31,6 +31,8 @@ public class AlarmReceiver extends BroadcastReceiver {
         if (intent.getBooleanExtra("block_start", false)) {
             String startTime = intent.getStringExtra("block_start_time");
             String endTime = intent.getStringExtra("block_end_time");
+            boolean timerMode = intent.getBooleanExtra("block_timer_mode", false);
+            long endMillis = intent.getLongExtra("block_end_millis", 0);
             BlockPeriod block = findBlockByTimes(context, startTime, endTime);
 
             Intent serviceIntent = new Intent(context, LockService.class);
@@ -39,6 +41,8 @@ public class AlarmReceiver extends BroadcastReceiver {
             serviceIntent.putExtra("sound_enabled", false);
             serviceIntent.putExtra(LockService.EXTRA_LOCK_KIND, LockService.LOCK_KIND_FOCUS);
             serviceIntent.putExtra(LockService.EXTRA_UNLOCK_MODE, LockService.UNLOCK_MODE_PHRASE);
+            serviceIntent.putExtra("block_timer_mode", timerMode);
+            serviceIntent.putExtra("block_end_millis", endMillis);
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 context.startForegroundService(serviceIntent);
             } else {
@@ -103,6 +107,7 @@ public class AlarmReceiver extends BroadcastReceiver {
                     }
                     BlockPeriod b = new BlockPeriod(s, e, days);
                     b.setEnabled(obj.optBoolean("enabled", true));
+                    b.setTimerMode(obj.optBoolean("timerMode", false));
                     return b;
                 }
             }

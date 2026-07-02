@@ -1,27 +1,19 @@
 const { app, BrowserWindow, ipcMain, Notification } = require('electron');
 const path = require('path');
-const firebase = require('firebase/app');
-require('firebase/database');
+const fs = require('fs');
+const os = require('os');
 
 let mainWindow;
+let blockWindow = null;
 
-// Firebase configuration - пользователь должен заполнить свои данные
-const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_AUTH_DOMAIN",
-  databaseURL: "YOUR_DATABASE_URL",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_STORAGE_BUCKET",
-  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-  appId: "YOUR_APP_ID"
-};
+// Путь к файлу синхронизации
+const documentsPath = path.join(os.homedir(), 'Documents', 'StrictHabits');
+const syncFilePath = path.join(documentsPath, 'sync_data.json');
 
-// Initialize Firebase
-if (!firebase.apps.length) {
-  firebase.initializeApp(firebaseConfig);
+// Создаем директорию если её нет
+if (!fs.existsSync(documentsPath)) {
+  fs.mkdirSync(documentsPath, { recursive: true });
 }
-
-const database = firebase.database();
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -56,11 +48,36 @@ app.on('window-all-closed', function () {
   if (process.platform !== 'darwin') app.quit();
 });
 
+// Функция для чтения данных из файла синхронизации
+function readSyncData() {
+  try {
+    if (fs.existsSync(syncFilePath)) {
+      const data = fs.readFileSync(syncFilePath, 'utf8');
+      return JSON.parse(data);
+    }
+  } catch (error) {
+    console.error('Error reading sync file:', error);
+  }
+  return { habits: [], blocks: [], lastUpdate: new Date().toISOString() };
+}
+
+// Функция для записи данных в файл синхронизации
+function writeSyncData(data) {
+  try {
+    data.lastUpdate = new Date().toISOString();
+    fs.writeFileSync(syncFilePath, JSON.stringify(data, null, 2), 'utf8');
+    return true;
+  } catch (error) {
+    console.error('Error writing sync file:', error);
+    return false;
+  }
+}
+
 // IPC handlers for sync
 ipcMain.handle('sync-get-habits', async () => {
   try {
-    const snapshot = await database.ref('habits').once('value');
-    return snapshot.val() || [];
+    const data = readSyncData();
+    return data.habits || [];
   } catch (error) {
     console.error('Error fetching habits:', error);
     return [];
@@ -69,8 +86,10 @@ ipcMain.handle('sync-get-habits', async () => {
 
 ipcMain.handle('sync-save-habits', async (event, habits) => {
   try {
-    await database.ref('habits').set(habits);
-    return { success: true };
+    const data = readSyncData();
+    data.habits = habits;
+    const success = writeSyncData(data);
+    return { success };
   } catch (error) {
     console.error('Error saving habits:', error);
     return { success: false, error: error.message };
@@ -79,8 +98,8 @@ ipcMain.handle('sync-save-habits', async (event, habits) => {
 
 ipcMain.handle('sync-get-blocks', async () => {
   try {
-    const snapshot = await database.ref('blocks').once('value');
-    return snapshot.val() || [];
+    const data = readSyncData();
+    return data.blocks || [];
   } catch (error) {
     console.error('Error fetching blocks:', error);
     return [];
@@ -89,10 +108,116 @@ ipcMain.handle('sync-get-blocks', async () => {
 
 ipcMain.handle('sync-save-blocks', async (event, blocks) => {
   try {
-    await database.ref('blocks').set(blocks);
-    return { success: true };
+    const data = readSyncData();
+    data.blocks = blocks;
+    const success = writeSyncData(data);
+    return { success };
   } catch (error) {
     console.error('Error saving blocks:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// IPC handler для активации блокировки экрана
+ipcMain.handle('activate-block', async (event, blockData) => {
+  try {
+    if (blockWindow) {
+      blockWindow.close();
+    }
+
+    blockWindow = new BrowserWindow({
+      fullscreen: true,
+      frame: false,
+      alwaysOnTop: true,
+      skipTaskbar: true,
+      webPreferences: {
+        nodeIntegration: true,
+        contextIsolation: false
+      }
+    });
+
+    // Создаем HTML для блокировки
+    const blockHtml = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <style>
+          body {
+            margin: 0;
+            padding: 0;
+            background: #D32F2F;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            color: white;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            text-align: center;
+          }
+          .container {
+            padding: 40px;
+          }
+          h1 {
+            font-size: 72px;
+            margin-bottom: 20px;
+          }
+          .timer {
+            font-size: 120px;
+            font-weight: bold;
+            margin: 40px 0;
+          }
+          .message {
+            font-size: 32px;
+            opacity: 0.9;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <h1>🚫 БЛОКИРОВКА</h1>
+          <div class="timer" id="timer"></div>
+          <div class="message">${blockData.message || 'Время блокировки'}</div>
+        </div>
+        <script>
+          const endTime = ${blockData.endTime};
+
+          function updateTimer() {
+            const now = Date.now();
+            const remaining = endTime - now;
+
+            if (remaining <= 0) {
+              window.close();
+              return;
+            }
+
+            const hours = Math.floor(remaining / (1000 * 60 * 60));
+            const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((remaining % (1000 * 60)) / 1000);
+
+            document.getElementById('timer').textContent =
+              String(hours).padStart(2, '0') + ':' +
+              String(minutes).padStart(2, '0') + ':' +
+              String(seconds).padStart(2, '0');
+
+            setTimeout(updateTimer, 1000);
+          }
+
+          updateTimer();
+        </script>
+      </body>
+      </html>
+    `;
+
+    blockWindow.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(blockHtml));
+
+    blockWindow.on('closed', () => {
+      blockWindow = null;
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error activating block:', error);
     return { success: false, error: error.message };
   }
 });

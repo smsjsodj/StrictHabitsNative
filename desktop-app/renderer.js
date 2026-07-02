@@ -2,11 +2,13 @@ const { ipcRenderer } = require('electron');
 
 let habits = [];
 let blocks = [];
+let blockCheckInterval = null;
 
 // Load data on startup
 window.addEventListener('DOMContentLoaded', () => {
     loadHabits();
     loadBlocks();
+    startBlockChecker();
 });
 
 function switchTab(tabName) {
@@ -168,7 +170,8 @@ async function saveBlock() {
         startTime,
         endTime,
         days,
-        enabled: true
+        enabled: true,
+        timerMode: document.getElementById('blockTimerMode').checked
     };
 
     blocks.push(block);
@@ -179,6 +182,7 @@ async function saveBlock() {
     // Clear form
     document.getElementById('blockStart').value = '';
     document.getElementById('blockEnd').value = '';
+    document.getElementById('blockTimerMode').checked = false;
 
     showStatus('Блокировка добавлена');
 }
@@ -210,7 +214,7 @@ function renderBlocks() {
     blockList.innerHTML = blocks.map((block, index) => `
         <div class="block-item">
             <div class="block-info">
-                <div class="block-time">${block.startTime} - ${block.endTime} ${block.enabled ? '✓' : '✗'}</div>
+                <div class="block-time">${block.startTime} - ${block.endTime} ${block.enabled ? '✓' : '✗'} ${block.timerMode ? '⏱️' : ''}</div>
             </div>
             <div class="block-actions">
                 <button class="button ${block.enabled ? 'button-primary' : ''}" onclick="toggleBlock(${index})">
@@ -250,4 +254,72 @@ async function syncData() {
     await loadHabits();
     await loadBlocks();
     showStatus('Данные обновлены', 'success');
+}
+
+// Функция проверки активных блокировок
+function startBlockChecker() {
+    // Проверяем каждую минуту
+    blockCheckInterval = setInterval(() => {
+        checkActiveBlocks();
+    }, 60000);
+
+    // Сразу проверяем при старте
+    checkActiveBlocks();
+}
+
+function checkActiveBlocks() {
+    const now = new Date();
+    const currentTime = now.getHours() * 60 + now.getMinutes();
+    const dayOfWeek = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'][now.getDay()];
+
+    for (const block of blocks) {
+        if (!block.enabled) continue;
+
+        // Проверяем, активен ли этот день
+        if (!block.days[dayOfWeek]) continue;
+
+        const [startH, startM] = block.startTime.split(':').map(Number);
+        const [endH, endM] = block.endTime.split(':').map(Number);
+        const startTime = startH * 60 + startM;
+        let endTime = endH * 60 + endM;
+
+        // Если конец меньше начала, значит блокировка переходит на следующий день
+        if (endTime < startTime) {
+            endTime += 24 * 60;
+        }
+
+        let isActive = false;
+        if (endTime < startTime) {
+            // Блокировка через полночь
+            isActive = currentTime >= startTime || currentTime < (endTime % (24 * 60));
+        } else {
+            isActive = currentTime >= startTime && currentTime < endTime;
+        }
+
+        if (isActive) {
+            // Вычисляем время окончания блокировки
+            const endDate = new Date(now);
+            if (endTime >= 24 * 60) {
+                endDate.setDate(endDate.getDate() + 1);
+                endDate.setHours(endH, endM, 0, 0);
+            } else {
+                endDate.setHours(endH, endM, 0, 0);
+            }
+
+            activateBlock(block, endDate.getTime());
+            return;
+        }
+    }
+}
+
+async function activateBlock(block, endMillis) {
+    const message = block.timerMode
+        ? `Блокировка ${block.startTime} - ${block.endTime}`
+        : 'Время блокировки';
+
+    await ipcRenderer.invoke('activate-block', {
+        endTime: endMillis,
+        message: message,
+        timerMode: block.timerMode
+    });
 }

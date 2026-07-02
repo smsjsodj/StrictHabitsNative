@@ -482,6 +482,7 @@ public class MainActivity extends AppCompatActivity {
                 }
                 BlockPeriod bp = new BlockPeriod(obj.optString("startTime", "00:00"), obj.optString("endTime", "00:00"), days);
                 bp.setEnabled(obj.optBoolean("enabled", true));
+                bp.setTimerMode(obj.optBoolean("timerMode", false));
                 blockList.add(bp);
             }
         } catch (Exception e) { e.printStackTrace(); }
@@ -495,6 +496,7 @@ public class MainActivity extends AppCompatActivity {
                 obj.put("startTime", b.getStartTime());
                 obj.put("endTime", b.getEndTime());
                 obj.put("enabled", b.isEnabled());
+                obj.put("timerMode", b.isTimerMode());
                 org.json.JSONObject daysObj = new org.json.JSONObject();
                 for (java.util.Map.Entry<String, Boolean> e : b.getDays().entrySet()) {
                     daysObj.put(e.getKey(), e.getValue());
@@ -559,6 +561,7 @@ public class MainActivity extends AppCompatActivity {
         CheckBox chkFri = view.findViewById(R.id.chkFri);
         CheckBox chkSat = view.findViewById(R.id.chkSat);
         CheckBox chkSun = view.findViewById(R.id.chkSun);
+        CheckBox chkTimerMode = view.findViewById(R.id.chkTimerMode);
 
         int[] startHour = {0};
         int[] startMinute = {0};
@@ -573,6 +576,7 @@ public class MainActivity extends AppCompatActivity {
             endHour[0] = Integer.parseInt(ep[0]);
             endMinute[0] = Integer.parseInt(ep[1]);
             setDayChecks(existing.getDays(), chkMon, chkTue, chkWed, chkThu, chkFri, chkSat, chkSun);
+            chkTimerMode.setChecked(existing.isTimerMode());
         }
 
         btnStart.setText(String.format(Locale.getDefault(), "%02d:%02d", startHour[0], startMinute[0]));
@@ -598,6 +602,7 @@ public class MainActivity extends AppCompatActivity {
                     String end = String.format(Locale.getDefault(), "%02d:%02d", endHour[0], endMinute[0]);
                     java.util.Map<String, Boolean> days = collectDays(chkMon, chkTue, chkWed, chkThu, chkFri, chkSat, chkSun);
                     BlockPeriod bp = new BlockPeriod(start, end, days);
+                    bp.setTimerMode(chkTimerMode.isChecked());
                     if (editing) {
                         BlockPeriod old = blockList.get(position);
                         BlockScheduler.cancel(this, old);
