@@ -35,8 +35,12 @@ public class AlarmReceiver extends BroadcastReceiver {
             long endMillis = intent.getLongExtra("block_end_millis", 0);
             BlockPeriod block = findBlockByTimes(context, startTime, endTime);
 
+            String blockName = block != null && !block.getName().isEmpty()
+                ? block.getName()
+                : "Фокус-блокировка";
+
             Intent serviceIntent = new Intent(context, LockService.class);
-            serviceIntent.putExtra("habit_name", "Фокус-блокировка");
+            serviceIntent.putExtra("habit_name", blockName);
             serviceIntent.putExtra("habit_time", startTime + " - " + endTime);
             serviceIntent.putExtra("sound_enabled", false);
             serviceIntent.putExtra(LockService.EXTRA_LOCK_KIND, LockService.LOCK_KIND_FOCUS);
@@ -106,6 +110,7 @@ public class AlarmReceiver extends BroadcastReceiver {
                         days.put("sun", daysObj.optBoolean("sun", false));
                     }
                     BlockPeriod b = new BlockPeriod(s, e, days);
+                    b.setName(obj.optString("name", ""));
                     b.setEnabled(obj.optBoolean("enabled", true));
                     b.setTimerMode(obj.optBoolean("timerMode", false));
                     return b;

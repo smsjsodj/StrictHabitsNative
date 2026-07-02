@@ -4,6 +4,7 @@ import java.io.Serializable;
 import java.util.Map;
 
 public class BlockPeriod implements Serializable {
+    private String name;       // Название блокировки
     private String startTime; // "HH:mm"
     private String endTime;   // "HH:mm"
     private Map<String, Boolean> days; // mon..sun
@@ -11,12 +12,16 @@ public class BlockPeriod implements Serializable {
     private boolean timerMode; // Режим таймера - показывает отсчет времени
 
     public BlockPeriod(String startTime, String endTime, java.util.Map<String, Boolean> days) {
+        this.name = "";
         this.startTime = startTime;
         this.endTime = endTime;
         this.days = days;
         this.enabled = true;
         this.timerMode = false;
     }
+
+    public String getName() { return name; }
+    public void setName(String name) { this.name = name; }
 
     public String getStartTime() { return startTime; }
     public String getEndTime() { return endTime; }

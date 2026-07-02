@@ -148,6 +148,7 @@ function showAddBlockModal() {
 }
 
 async function saveBlock() {
+    const blockName = document.getElementById('blockName').value.trim();
     const startTime = document.getElementById('blockStart').value;
     const endTime = document.getElementById('blockEnd').value;
 
@@ -167,6 +168,7 @@ async function saveBlock() {
     };
 
     const block = {
+        name: blockName,
         startTime,
         endTime,
         days,
@@ -180,6 +182,7 @@ async function saveBlock() {
     closeModal('blockModal');
 
     // Clear form
+    document.getElementById('blockName').value = '';
     document.getElementById('blockStart').value = '';
     document.getElementById('blockEnd').value = '';
     document.getElementById('blockTimerMode').checked = false;
@@ -211,10 +214,13 @@ function renderBlocks() {
         return;
     }
 
-    blockList.innerHTML = blocks.map((block, index) => `
+    blockList.innerHTML = blocks.map((block, index) => {
+        const name = block.name ? `${block.name} | ` : '';
+        const timer = block.timerMode ? '⏱️' : '';
+        return `
         <div class="block-item">
             <div class="block-info">
-                <div class="block-time">${block.startTime} - ${block.endTime} ${block.enabled ? '✓' : '✗'} ${block.timerMode ? '⏱️' : ''}</div>
+                <div class="block-time">${name}${block.startTime} - ${block.endTime} ${block.enabled ? '✓' : '✗'} ${timer}</div>
             </div>
             <div class="block-actions">
                 <button class="button ${block.enabled ? 'button-primary' : ''}" onclick="toggleBlock(${index})">
@@ -223,7 +229,7 @@ function renderBlocks() {
                 <button class="button button-danger" onclick="deleteBlock(${index})">Удалить</button>
             </div>
         </div>
-    `).join('');
+    `}).join('');
 }
 
 async function loadBlocks() {
@@ -313,9 +319,10 @@ function checkActiveBlocks() {
 }
 
 async function activateBlock(block, endMillis) {
+    const blockName = block.name || 'Блокировка';
     const message = block.timerMode
-        ? `Блокировка ${block.startTime} - ${block.endTime}`
-        : 'Время блокировки';
+        ? `${blockName} | ${block.startTime} - ${block.endTime}`
+        : blockName;
 
     await ipcRenderer.invoke('activate-block', {
         endTime: endMillis,

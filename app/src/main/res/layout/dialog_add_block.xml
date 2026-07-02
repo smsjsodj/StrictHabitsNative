@@ -9,6 +9,22 @@
         android:layout_height="wrap_content"
         android:orientation="vertical">
 
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Название блокировки"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="8dp"/>
+
+        <EditText
+            android:id="@+id/etBlockName"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Например: Вечерний отдых"
+            android:inputType="text"
+            android:layout_marginBottom="16dp"/>
+
         <Button
             android:id="@+id/btnSelectStartTime"
             android:layout_width="match_parent"

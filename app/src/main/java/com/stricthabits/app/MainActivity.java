@@ -481,6 +481,7 @@ public class MainActivity extends AppCompatActivity {
                     days.put("sun", daysObj.optBoolean("sun", false));
                 }
                 BlockPeriod bp = new BlockPeriod(obj.optString("startTime", "00:00"), obj.optString("endTime", "00:00"), days);
+                bp.setName(obj.optString("name", ""));
                 bp.setEnabled(obj.optBoolean("enabled", true));
                 bp.setTimerMode(obj.optBoolean("timerMode", false));
                 blockList.add(bp);
@@ -493,6 +494,7 @@ public class MainActivity extends AppCompatActivity {
             org.json.JSONArray arr = new org.json.JSONArray();
             for (BlockPeriod b : blockList) {
                 org.json.JSONObject obj = new org.json.JSONObject();
+                obj.put("name", b.getName());
                 obj.put("startTime", b.getStartTime());
                 obj.put("endTime", b.getEndTime());
                 obj.put("enabled", b.isEnabled());
@@ -519,7 +521,9 @@ public class MainActivity extends AppCompatActivity {
         String[] items = new String[blockList.size() + 1];
         for (int i = 0; i < blockList.size(); i++) {
             BlockPeriod b = blockList.get(i);
-            items[i] = b.getStartTime() + " - " + b.getEndTime();
+            String name = b.getName().isEmpty() ? "" : b.getName() + " | ";
+            String timer = b.isTimerMode() ? " ⏱️" : "";
+            items[i] = name + b.getStartTime() + " - " + b.getEndTime() + timer;
         }
         items[blockList.size()] = "Добавить блокировку";
 
@@ -552,6 +556,7 @@ public class MainActivity extends AppCompatActivity {
         BlockPeriod existing = editing ? blockList.get(position) : null;
 
         View view = getLayoutInflater().inflate(R.layout.dialog_add_block, null);
+        EditText etBlockName = view.findViewById(R.id.etBlockName);
         Button btnStart = view.findViewById(R.id.btnSelectStartTime);
         Button btnEnd = view.findViewById(R.id.btnSelectEndTime);
         CheckBox chkMon = view.findViewById(R.id.chkMon);
@@ -569,6 +574,7 @@ public class MainActivity extends AppCompatActivity {
         int[] endMinute = {0};
 
         if (existing != null) {
+            etBlockName.setText(existing.getName());
             String[] sp = existing.getStartTime().split(":");
             startHour[0] = Integer.parseInt(sp[0]);
             startMinute[0] = Integer.parseInt(sp[1]);
@@ -598,10 +604,12 @@ public class MainActivity extends AppCompatActivity {
                 .setTitle(editing ? "Изменить блок" : "Новая блокировка")
                 .setView(view)
                 .setPositiveButton("Сохранить", (dialog, which) -> {
+                    String name = etBlockName.getText().toString().trim();
                     String start = String.format(Locale.getDefault(), "%02d:%02d", startHour[0], startMinute[0]);
                     String end = String.format(Locale.getDefault(), "%02d:%02d", endHour[0], endMinute[0]);
                     java.util.Map<String, Boolean> days = collectDays(chkMon, chkTue, chkWed, chkThu, chkFri, chkSat, chkSun);
                     BlockPeriod bp = new BlockPeriod(start, end, days);
+                    bp.setName(name);
                     bp.setTimerMode(chkTimerMode.isChecked());
                     if (editing) {
                         BlockPeriod old = blockList.get(position);
