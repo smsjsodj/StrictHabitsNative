@@ -2,7 +2,7 @@
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#FF6F00"
+    android:background="#D32F2F"
     android:padding="32dp">
 
     <LinearLayout
@@ -13,11 +13,18 @@
         android:gravity="center">
 
         <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="🚫"
+            android:textSize="72sp"
+            android:layout_marginBottom="24dp"/>
+
+        <TextView
             android:id="@+id/tvTimerLockName"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Таймер-блокировка"
-            android:textSize="32sp"
+            android:text="БЛОКИРОВКА"
+            android:textSize="36sp"
             android:textStyle="bold"
             android:textColor="#FFFFFF"
             android:gravity="center"
@@ -28,28 +35,28 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="20:00"
-            android:textSize="96sp"
+            android:textSize="120sp"
             android:textStyle="bold"
             android:textColor="#FFFFFF"
             android:fontFamily="monospace"
-            android:layout_marginBottom="24dp"/>
+            android:layout_marginBottom="48dp"/>
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Телефон заблокирован"
-            android:textSize="18sp"
+            android:textSize="24sp"
             android:textColor="#FFFFFF"
-            android:alpha="0.9"
-            android:layout_marginBottom="8dp"/>
+            android:textStyle="bold"
+            android:layout_marginBottom="16dp"/>
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Дождитесь окончания таймера"
-            android:textSize="16sp"
+            android:textSize="18sp"
             android:textColor="#FFFFFF"
-            android:alpha="0.8"/>
+            android:alpha="0.9"/>
 
     </LinearLayout>
 
