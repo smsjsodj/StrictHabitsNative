@@ -137,6 +137,7 @@ ipcMain.handle('activate-block', async (event, blockData) => {
     });
 
     // Создаем HTML для блокировки
+    const timerDisplay = blockData.timerMode ? '<div class="timer" id="timer"></div>' : '';
     const blockHtml = `
       <!DOCTYPE html>
       <html>
@@ -176,11 +177,12 @@ ipcMain.handle('activate-block', async (event, blockData) => {
       <body>
         <div class="container">
           <h1>🚫 БЛОКИРОВКА</h1>
-          <div class="timer" id="timer"></div>
+          ${timerDisplay}
           <div class="message">${blockData.message || 'Время блокировки'}</div>
         </div>
         <script>
           const endTime = ${blockData.endTime};
+          const timerMode = ${blockData.timerMode || false};
 
           function updateTimer() {
             const now = Date.now();
@@ -191,14 +193,19 @@ ipcMain.handle('activate-block', async (event, blockData) => {
               return;
             }
 
-            const hours = Math.floor(remaining / (1000 * 60 * 60));
-            const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
-            const seconds = Math.floor((remaining % (1000 * 60)) / 1000);
+            if (timerMode) {
+              const hours = Math.floor(remaining / (1000 * 60 * 60));
+              const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
+              const seconds = Math.floor((remaining % (1000 * 60)) / 1000);
 
-            document.getElementById('timer').textContent =
-              String(hours).padStart(2, '0') + ':' +
-              String(minutes).padStart(2, '0') + ':' +
-              String(seconds).padStart(2, '0');
+              const timerElement = document.getElementById('timer');
+              if (timerElement) {
+                timerElement.textContent =
+                  String(hours).padStart(2, '0') + ':' +
+                  String(minutes).padStart(2, '0') + ':' +
+                  String(seconds).padStart(2, '0');
+              }
+            }
 
             setTimeout(updateTimer, 1000);
           }

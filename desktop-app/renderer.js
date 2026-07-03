@@ -287,31 +287,29 @@ function checkActiveBlocks() {
         const [startH, startM] = block.startTime.split(':').map(Number);
         const [endH, endM] = block.endTime.split(':').map(Number);
         const startTime = startH * 60 + startM;
-        let endTime = endH * 60 + endM;
+        const endTime = endH * 60 + endM;
+
+        let isActive = false;
+        let endDate = new Date(now);
 
         // Если конец меньше начала, значит блокировка переходит на следующий день
         if (endTime < startTime) {
-            endTime += 24 * 60;
-        }
-
-        let isActive = false;
-        if (endTime < startTime) {
             // Блокировка через полночь
-            isActive = currentTime >= startTime || currentTime < (endTime % (24 * 60));
+            isActive = currentTime >= startTime || currentTime < endTime;
+
+            // Время окончания
+            if (currentTime >= startTime) {
+                // Сейчас после начала - конец завтра
+                endDate.setDate(endDate.getDate() + 1);
+            }
+            endDate.setHours(endH, endM, 0, 0);
         } else {
+            // Обычная блокировка в пределах одного дня
             isActive = currentTime >= startTime && currentTime < endTime;
+            endDate.setHours(endH, endM, 0, 0);
         }
 
         if (isActive) {
-            // Вычисляем время окончания блокировки
-            const endDate = new Date(now);
-            if (endTime >= 24 * 60) {
-                endDate.setDate(endDate.getDate() + 1);
-                endDate.setHours(endH, endM, 0, 0);
-            } else {
-                endDate.setHours(endH, endM, 0, 0);
-            }
-
             activateBlock(block, endDate.getTime());
             return;
         }
