@@ -29,7 +29,7 @@ function createWindow() {
   mainWindow.loadFile('index.html');
 
   // Открываем DevTools в режиме разработки
-  // mainWindow.webContents.openDevTools();
+  mainWindow.webContents.openDevTools();
 
   mainWindow.on('closed', function () {
     mainWindow = null;
@@ -121,7 +121,11 @@ ipcMain.handle('sync-save-blocks', async (event, blocks) => {
 // IPC handler для активации блокировки экрана
 ipcMain.handle('activate-block', async (event, blockData) => {
   try {
+    console.log('=== ACTIVATE BLOCK CALLED ===');
+    console.log('Block data:', blockData);
+
     if (blockWindow) {
+      console.log('Closing existing block window');
       blockWindow.close();
     }
 
@@ -135,6 +139,8 @@ ipcMain.handle('activate-block', async (event, blockData) => {
         contextIsolation: false
       }
     });
+
+    console.log('Block window created');
 
     // Создаем HTML для блокировки
     const timerDisplay = blockData.timerMode ? '<div class="timer" id="timer"></div>' : '';
@@ -184,11 +190,16 @@ ipcMain.handle('activate-block', async (event, blockData) => {
           const endTime = ${blockData.endTime};
           const timerMode = ${blockData.timerMode || false};
 
+          console.log('Block screen loaded');
+          console.log('End time:', new Date(endTime));
+          console.log('Timer mode:', timerMode);
+
           function updateTimer() {
             const now = Date.now();
             const remaining = endTime - now;
 
             if (remaining <= 0) {
+              console.log('Time is up, closing window');
               window.close();
               return;
             }
@@ -219,9 +230,11 @@ ipcMain.handle('activate-block', async (event, blockData) => {
     blockWindow.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(blockHtml));
 
     blockWindow.on('closed', () => {
+      console.log('Block window closed');
       blockWindow = null;
     });
 
+    console.log('Block activated successfully');
     return { success: true };
   } catch (error) {
     console.error('Error activating block:', error);

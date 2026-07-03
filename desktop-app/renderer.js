@@ -278,16 +278,35 @@ function checkActiveBlocks() {
     const currentTime = now.getHours() * 60 + now.getMinutes();
     const dayOfWeek = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'][now.getDay()];
 
+    console.log('=== Checking blocks ===');
+    console.log('Current time:', now.toLocaleTimeString(), 'Day:', dayOfWeek);
+    console.log('Total blocks:', blocks.length);
+
     for (const block of blocks) {
-        if (!block.enabled) continue;
+        console.log('Block:', block.name || 'unnamed', 'enabled:', block.enabled);
+
+        if (!block.enabled) {
+            console.log('  -> Skipped (disabled)');
+            continue;
+        }
+
+        console.log('  Days config:', block.days);
+        console.log('  Day active:', block.days[dayOfWeek]);
 
         // Проверяем, активен ли этот день
-        if (!block.days[dayOfWeek]) continue;
+        if (!block.days[dayOfWeek]) {
+            console.log('  -> Skipped (wrong day)');
+            continue;
+        }
 
         const [startH, startM] = block.startTime.split(':').map(Number);
         const [endH, endM] = block.endTime.split(':').map(Number);
         const startTime = startH * 60 + startM;
         const endTime = endH * 60 + endM;
+
+        console.log('  Start:', block.startTime, '('+startTime+' min)');
+        console.log('  End:', block.endTime, '('+endTime+' min)');
+        console.log('  Current:', currentTime, 'min');
 
         let isActive = false;
         let endDate = new Date(now);
@@ -296,6 +315,7 @@ function checkActiveBlocks() {
         if (endTime < startTime) {
             // Блокировка через полночь
             isActive = currentTime >= startTime || currentTime < endTime;
+            console.log('  Midnight crossover mode, isActive:', isActive);
 
             // Время окончания
             if (currentTime >= startTime) {
@@ -306,14 +326,19 @@ function checkActiveBlocks() {
         } else {
             // Обычная блокировка в пределах одного дня
             isActive = currentTime >= startTime && currentTime < endTime;
+            console.log('  Normal mode, isActive:', isActive);
             endDate.setHours(endH, endM, 0, 0);
         }
 
         if (isActive) {
+            console.log('  -> ACTIVATING BLOCK!');
             activateBlock(block, endDate.getTime());
             return;
+        } else {
+            console.log('  -> Not active yet');
         }
     }
+    console.log('=== No active blocks ===');
 }
 
 async function activateBlock(block, endMillis) {
