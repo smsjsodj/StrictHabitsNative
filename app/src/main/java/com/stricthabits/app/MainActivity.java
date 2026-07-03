@@ -4,6 +4,7 @@ import android.app.AlarmManager;
 import android.app.AlertDialog;
 import android.app.TimePickerDialog;
 import android.content.BroadcastReceiver;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
@@ -37,9 +38,11 @@ public class MainActivity extends AppCompatActivity {
     private final List<Habit> habitList = new ArrayList<>();
     private SharedPreferences prefs;
     private final List<BlockPeriod> blockList = new ArrayList<>();
+    private final List<TimerBlock> timerBlockList = new ArrayList<>();
     private final List<BlockedApp> blockedAppList = new ArrayList<>();
     private final List<WhitelistedApp> whitelistedAppList = new ArrayList<>();
     private SyncManager syncManager;
+    private boolean habitsReceiverRegistered = false;
     private final BroadcastReceiver habitsUpdatedReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
@@ -56,8 +59,6 @@ public class MainActivity extends AppCompatActivity {
 
         try {
             syncManager = new SyncManager(this);
-            // Импортируем данные из файла синхронизации если есть
-            syncManager.importFromSyncFile();
         } catch (Exception e) {
             Log.e("MainActivity", "Error initializing sync", e);
             syncManager = null;
@@ -94,7 +95,7 @@ public class MainActivity extends AppCompatActivity {
 
         Button btnTimerLock = findViewById(R.id.btnTimerLock);
         if (btnTimerLock != null) {
-            btnTimerLock.setOnClickListener(v -> showTimerLockDialog());
+            btnTimerLock.setOnClickListener(v -> showTimerBlocksDialog());
         }
 
         Button btnSync = findViewById(R.id.btnSync);
@@ -103,11 +104,11 @@ public class MainActivity extends AppCompatActivity {
         }
 
         View btnOverlay = findViewById(R.id.btnRequestOverlay);
-        btnOverlay.setOnClickListener(v -> requestOverlayPermission());
+        if (btnOverlay != null) {
+            btnOverlay.setOnClickListener(v -> requestOverlayPermission());
+        }
         updateOverlayButton();
-        requestExactAlarmPermission();
         requestNotificationPermission();
-        requestAccessibilityPermission();
     }
 
     @Override
@@ -122,7 +123,14 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        unregisterReceiver(habitsUpdatedReceiver);
+        if (habitsReceiverRegistered) {
+            try {
+                unregisterReceiver(habitsUpdatedReceiver);
+            } catch (Exception e) {
+                Log.w("MainActivity", "Receiver was already unregistered", e);
+            }
+            habitsReceiverRegistered = false;
+        }
     }
 
     private void startFocusLock() {
@@ -194,9 +202,9 @@ public class MainActivity extends AppCompatActivity {
             etName.setText(existing.getName());
             chkSound.setChecked(existing.isSoundEnabled());
             setDayChecks(existing.getDays(), chkMon, chkTue, chkWed, chkThu, chkFri, chkSat, chkSun);
-            String[] parts = existing.getTime().split(":");
-            hour[0] = Integer.parseInt(parts[0]);
-            minute[0] = Integer.parseInt(parts[1]);
+            int[] timeParts = TimeUtils.parseTimeParts(existing.getTime(), 12, 0);
+            hour[0] = timeParts[0];
+            minute[0] = timeParts[1];
         }
         btnTime.setText(String.format(Locale.getDefault(), "%02d:%02d", hour[0], minute[0]));
         btnTime.setOnClickListener(v -> new TimePickerDialog(this,
@@ -298,35 +306,48 @@ public class MainActivity extends AppCompatActivity {
             JSONArray arr = new JSONArray(json);
             habitList.clear();
             for (int i = 0; i < arr.length(); i++) {
-                JSONObject obj = arr.getJSONObject(i);
-                Map<String, Boolean> days = new HashMap<>();
-                JSONObject daysObj = obj.optJSONObject("days");
-                if (daysObj != null) {
-                    days.put("mon", daysObj.optBoolean("mon", false));
-                    days.put("tue", daysObj.optBoolean("tue", false));
-                    days.put("wed", daysObj.optBoolean("wed", false));
-                    days.put("thu", daysObj.optBoolean("thu", false));
-                    days.put("fri", daysObj.optBoolean("fri", false));
-                    days.put("sat", daysObj.optBoolean("sat", false));
-                    days.put("sun", daysObj.optBoolean("sun", false));
-                }
+                try {
+                    JSONObject obj = arr.getJSONObject(i);
+                    String name = obj.optString("name", "").trim();
+                    if (name.isEmpty()) {
+                        continue;
+                    }
 
-                Habit habit = new Habit(
-                        obj.getString("name"),
-                        obj.getString("time"),
-                        obj.optBoolean("soundEnabled", true),
-                        days);
-                String lastDate = obj.optString("lastCompletedDate", "");
-                habit.setCompletedToday(today().equals(lastDate));
-                habit.setLastCompletedDate(lastDate);
-                habit.setCompletedCount(obj.optInt("completedCount", 0));
-                habit.setEnabled(obj.optBoolean("enabled", true));
-                String skippedDate = obj.optString("skippedDate", "");
-                habit.setSkippedDate(today().equals(skippedDate) ? skippedDate : "");
-                habitList.add(habit);
+                    int[] timeParts = TimeUtils.parseTimeParts(obj.optString("time", "12:00"), 12, 0);
+                    String time = TimeUtils.format(timeParts[0], timeParts[1]);
+
+                    Map<String, Boolean> days = new HashMap<>();
+                    JSONObject daysObj = obj.optJSONObject("days");
+                    if (daysObj != null) {
+                        days.put("mon", daysObj.optBoolean("mon", false));
+                        days.put("tue", daysObj.optBoolean("tue", false));
+                        days.put("wed", daysObj.optBoolean("wed", false));
+                        days.put("thu", daysObj.optBoolean("thu", false));
+                        days.put("fri", daysObj.optBoolean("fri", false));
+                        days.put("sat", daysObj.optBoolean("sat", false));
+                        days.put("sun", daysObj.optBoolean("sun", false));
+                    }
+
+                    Habit habit = new Habit(
+                            name,
+                            time,
+                            obj.optBoolean("soundEnabled", true),
+                            days);
+                    String lastDate = obj.optString("lastCompletedDate", "");
+                    habit.setCompletedToday(today().equals(lastDate));
+                    habit.setLastCompletedDate(lastDate);
+                    habit.setCompletedCount(obj.optInt("completedCount", 0));
+                    habit.setEnabled(obj.optBoolean("enabled", true));
+                    String skippedDate = obj.optString("skippedDate", "");
+                    habit.setSkippedDate(today().equals(skippedDate) ? skippedDate : "");
+                    habitList.add(habit);
+                } catch (Exception e) {
+                    Log.w("MainActivity", "Skipping invalid habit at index " + i, e);
+                }
             }
             loadBlocks();
             loadWhitelistedApps();
+            loadTimerBlocks();
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -345,8 +366,10 @@ public class MainActivity extends AppCompatActivity {
                 obj.put("skippedDate", h.getSkippedDate());
                 obj.put("enabled", h.isEnabled());
                 JSONObject daysObj = new JSONObject();
-                for (Map.Entry<String, Boolean> e : h.getDays().entrySet()) {
-                    daysObj.put(e.getKey(), e.getValue());
+                if (h.getDays() != null) {
+                    for (Map.Entry<String, Boolean> e : h.getDays().entrySet()) {
+                        daysObj.put(e.getKey(), e.getValue());
+                    }
                 }
                 obj.put("days", daysObj);
                 arr.put(obj);
@@ -362,6 +385,7 @@ public class MainActivity extends AppCompatActivity {
             HabitScheduler.schedule(this, h);
         }
         scheduleAllBlocks();
+        scheduleAllTimerBlocks();
     }
 
     private Map<String, Boolean> collectDays(CheckBox mon, CheckBox tue, CheckBox wed, CheckBox thu,
@@ -453,12 +477,16 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void registerHabitsUpdatedReceiver() {
+        if (habitsReceiverRegistered) {
+            return;
+        }
         IntentFilter filter = new IntentFilter(LockService.ACTION_HABITS_UPDATED);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(habitsUpdatedReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
         } else {
             registerReceiver(habitsUpdatedReceiver, filter);
         }
+        habitsReceiverRegistered = true;
     }
 
     // --------- Blocks management ---------
@@ -468,23 +496,32 @@ public class MainActivity extends AppCompatActivity {
             org.json.JSONArray arr = new org.json.JSONArray(json);
             blockList.clear();
             for (int i = 0; i < arr.length(); i++) {
-                org.json.JSONObject obj = arr.getJSONObject(i);
-                java.util.Map<String, Boolean> days = new java.util.HashMap<>();
-                org.json.JSONObject daysObj = obj.optJSONObject("days");
-                if (daysObj != null) {
-                    days.put("mon", daysObj.optBoolean("mon", false));
-                    days.put("tue", daysObj.optBoolean("tue", false));
-                    days.put("wed", daysObj.optBoolean("wed", false));
-                    days.put("thu", daysObj.optBoolean("thu", false));
-                    days.put("fri", daysObj.optBoolean("fri", false));
-                    days.put("sat", daysObj.optBoolean("sat", false));
-                    days.put("sun", daysObj.optBoolean("sun", false));
+                try {
+                    org.json.JSONObject obj = arr.getJSONObject(i);
+                    java.util.Map<String, Boolean> days = new java.util.HashMap<>();
+                    org.json.JSONObject daysObj = obj.optJSONObject("days");
+                    if (daysObj != null) {
+                        days.put("mon", daysObj.optBoolean("mon", false));
+                        days.put("tue", daysObj.optBoolean("tue", false));
+                        days.put("wed", daysObj.optBoolean("wed", false));
+                        days.put("thu", daysObj.optBoolean("thu", false));
+                        days.put("fri", daysObj.optBoolean("fri", false));
+                        days.put("sat", daysObj.optBoolean("sat", false));
+                        days.put("sun", daysObj.optBoolean("sun", false));
+                    }
+                    int[] startParts = TimeUtils.parseTimeParts(obj.optString("startTime", "00:00"), 0, 0);
+                    int[] endParts = TimeUtils.parseTimeParts(obj.optString("endTime", "00:00"), 0, 0);
+                    BlockPeriod bp = new BlockPeriod(
+                            TimeUtils.format(startParts[0], startParts[1]),
+                            TimeUtils.format(endParts[0], endParts[1]),
+                            days);
+                    bp.setName(obj.optString("name", ""));
+                    bp.setEnabled(obj.optBoolean("enabled", true));
+                    bp.setTimerMode(obj.optBoolean("timerMode", false));
+                    blockList.add(bp);
+                } catch (Exception e) {
+                    Log.w("MainActivity", "Skipping invalid block at index " + i, e);
                 }
-                BlockPeriod bp = new BlockPeriod(obj.optString("startTime", "00:00"), obj.optString("endTime", "00:00"), days);
-                bp.setName(obj.optString("name", ""));
-                bp.setEnabled(obj.optBoolean("enabled", true));
-                bp.setTimerMode(obj.optBoolean("timerMode", false));
-                blockList.add(bp);
             }
         } catch (Exception e) { e.printStackTrace(); }
     }
@@ -500,8 +537,10 @@ public class MainActivity extends AppCompatActivity {
                 obj.put("enabled", b.isEnabled());
                 obj.put("timerMode", b.isTimerMode());
                 org.json.JSONObject daysObj = new org.json.JSONObject();
-                for (java.util.Map.Entry<String, Boolean> e : b.getDays().entrySet()) {
-                    daysObj.put(e.getKey(), e.getValue());
+                if (b.getDays() != null) {
+                    for (java.util.Map.Entry<String, Boolean> e : b.getDays().entrySet()) {
+                        daysObj.put(e.getKey(), e.getValue());
+                    }
                 }
                 obj.put("days", daysObj);
                 arr.put(obj);
@@ -575,12 +614,12 @@ public class MainActivity extends AppCompatActivity {
 
         if (existing != null) {
             etBlockName.setText(existing.getName());
-            String[] sp = existing.getStartTime().split(":");
-            startHour[0] = Integer.parseInt(sp[0]);
-            startMinute[0] = Integer.parseInt(sp[1]);
-            String[] ep = existing.getEndTime().split(":");
-            endHour[0] = Integer.parseInt(ep[0]);
-            endMinute[0] = Integer.parseInt(ep[1]);
+            int[] startParts = TimeUtils.parseTimeParts(existing.getStartTime(), 0, 0);
+            startHour[0] = startParts[0];
+            startMinute[0] = startParts[1];
+            int[] endParts = TimeUtils.parseTimeParts(existing.getEndTime(), 10, 0);
+            endHour[0] = endParts[0];
+            endMinute[0] = endParts[1];
             setDayChecks(existing.getDays(), chkMon, chkTue, chkWed, chkThu, chkFri, chkSat, chkSun);
             chkTimerMode.setChecked(existing.isTimerMode());
         }
@@ -633,16 +672,26 @@ public class MainActivity extends AppCompatActivity {
             JSONArray arr = new JSONArray(json);
             blockedAppList.clear();
             for (int i = 0; i < arr.length(); i++) {
-                JSONObject obj = arr.getJSONObject(i);
-                BlockedApp app = new BlockedApp(
-                        obj.getString("packageName"),
-                        obj.getString("appName"),
-                        obj.optString("blockType", "permanent")
-                );
-                app.setEnabled(obj.optBoolean("enabled", true));
-                app.setStartTime(obj.optString("startTime", "00:00"));
-                app.setEndTime(obj.optString("endTime", "23:59"));
-                blockedAppList.add(app);
+                try {
+                    JSONObject obj = arr.getJSONObject(i);
+                    String packageName = obj.optString("packageName", "").trim();
+                    if (packageName.isEmpty()) {
+                        continue;
+                    }
+                    BlockedApp app = new BlockedApp(
+                            packageName,
+                            obj.optString("appName", packageName),
+                            obj.optString("blockType", "permanent")
+                    );
+                    int[] startParts = TimeUtils.parseTimeParts(obj.optString("startTime", "00:00"), 0, 0);
+                    int[] endParts = TimeUtils.parseTimeParts(obj.optString("endTime", "23:59"), 23, 59);
+                    app.setEnabled(obj.optBoolean("enabled", true));
+                    app.setStartTime(TimeUtils.format(startParts[0], startParts[1]));
+                    app.setEndTime(TimeUtils.format(endParts[0], endParts[1]));
+                    blockedAppList.add(app);
+                } catch (Exception e) {
+                    Log.w("MainActivity", "Skipping invalid blocked app at index " + i, e);
+                }
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -704,12 +753,19 @@ public class MainActivity extends AppCompatActivity {
         }
         
         builder.setView(view);
+        if (!isAccessibilityServiceEnabled()) {
+            builder.setPositiveButton("Включить сервис", (dialog, which) -> requestAccessibilityPermission());
+        }
         builder.setNegativeButton("Закрыть", null);
         builder.show();
     }
 
     private void showSelectAppDialog() {
         List<BlockedApp> availableApps = getInstalledApps();
+        if (availableApps.isEmpty()) {
+            Toast.makeText(this, "Нет приложений для добавления", Toast.LENGTH_SHORT).show();
+            return;
+        }
         String[] appNames = new String[availableApps.size()];
         
         for (int i = 0; i < availableApps.size(); i++) {
@@ -904,9 +960,33 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void requestAccessibilityPermission() {
+        if (isAccessibilityServiceEnabled()) {
+            Toast.makeText(this, "Сервис блокировки приложений уже включен", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
         Intent intent = new Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS);
         startActivity(intent);
-        Toast.makeText(this, "Пожалуйста, включите 'Strict Habits' в Accessibility Services", Toast.LENGTH_LONG).show();
+        Toast.makeText(this, "Включите 'Strict Habits' в Accessibility Services", Toast.LENGTH_LONG).show();
+    }
+
+    private boolean isAccessibilityServiceEnabled() {
+        String enabledServices = Settings.Secure.getString(
+                getContentResolver(),
+                Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES);
+        if (enabledServices == null || enabledServices.isEmpty()) {
+            return false;
+        }
+
+        ComponentName expected = new ComponentName(this, AppBlockAccessibilityService.class);
+        String expectedName = expected.flattenToString();
+        String[] services = enabledServices.split(":");
+        for (String service : services) {
+            if (expectedName.equalsIgnoreCase(service)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     // --------- Whitelisted Apps Management ---------
@@ -925,13 +1005,21 @@ public class MainActivity extends AppCompatActivity {
             }
 
             for (int i = 0; i < arr.length(); i++) {
-                JSONObject obj = arr.getJSONObject(i);
-                WhitelistedApp app = new WhitelistedApp(
-                        obj.getString("packageName"),
-                        obj.getString("appName")
-                );
-                app.setEnabled(obj.optBoolean("enabled", true));
-                whitelistedAppList.add(app);
+                try {
+                    JSONObject obj = arr.getJSONObject(i);
+                    String packageName = obj.optString("packageName", "").trim();
+                    if (packageName.isEmpty()) {
+                        continue;
+                    }
+                    WhitelistedApp app = new WhitelistedApp(
+                            packageName,
+                            obj.optString("appName", packageName)
+                    );
+                    app.setEnabled(obj.optBoolean("enabled", true));
+                    whitelistedAppList.add(app);
+                } catch (Exception e) {
+                    Log.w("MainActivity", "Skipping invalid whitelisted app at index " + i, e);
+                }
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -1064,6 +1152,10 @@ public class MainActivity extends AppCompatActivity {
 
     private void showSelectAppForWhitelistDialog() {
         List<WhitelistedApp> availableApps = getInstalledAppsForWhitelist();
+        if (availableApps.isEmpty()) {
+            Toast.makeText(this, "Нет приложений для добавления", Toast.LENGTH_SHORT).show();
+            return;
+        }
         String[] appNames = new String[availableApps.size()];
         
         for (int i = 0; i < availableApps.size(); i++) {
@@ -1186,6 +1278,177 @@ public class MainActivity extends AppCompatActivity {
                 .show();
     }
 
+    // --------- Timer Blocks management ---------
+    private void loadTimerBlocks() {
+        try {
+            String json = prefs.getString("timer_blocks", "[]");
+            org.json.JSONArray arr = new org.json.JSONArray(json);
+            timerBlockList.clear();
+            for (int i = 0; i < arr.length(); i++) {
+                try {
+                    org.json.JSONObject obj = arr.getJSONObject(i);
+                    java.util.Map<String, Boolean> days = new java.util.HashMap<>();
+                    org.json.JSONObject daysObj = obj.optJSONObject("days");
+                    if (daysObj != null) {
+                        days.put("mon", daysObj.optBoolean("mon", false));
+                        days.put("tue", daysObj.optBoolean("tue", false));
+                        days.put("wed", daysObj.optBoolean("wed", false));
+                        days.put("thu", daysObj.optBoolean("thu", false));
+                        days.put("fri", daysObj.optBoolean("fri", false));
+                        days.put("sat", daysObj.optBoolean("sat", false));
+                        days.put("sun", daysObj.optBoolean("sun", false));
+                    }
+                    int[] startParts = TimeUtils.parseTimeParts(obj.optString("startTime", "00:00"), 0, 0);
+                    int[] endParts = TimeUtils.parseTimeParts(obj.optString("endTime", "00:00"), 0, 0);
+                    TimerBlock tb = new TimerBlock(
+                            obj.optString("name", "Таймер"),
+                            TimeUtils.format(startParts[0], startParts[1]),
+                            TimeUtils.format(endParts[0], endParts[1]),
+                            days);
+                    tb.setEnabled(obj.optBoolean("enabled", true));
+                    timerBlockList.add(tb);
+                } catch (Exception e) {
+                    Log.w("MainActivity", "Skipping invalid timer block at index " + i, e);
+                }
+            }
+        } catch (Exception e) { e.printStackTrace(); }
+    }
+
+    private void saveTimerBlocks() {
+        try {
+            org.json.JSONArray arr = new org.json.JSONArray();
+            for (TimerBlock tb : timerBlockList) {
+                org.json.JSONObject obj = new org.json.JSONObject();
+                obj.put("name", tb.getName());
+                obj.put("startTime", tb.getStartTime());
+                obj.put("endTime", tb.getEndTime());
+                obj.put("enabled", tb.isEnabled());
+                org.json.JSONObject daysObj = new org.json.JSONObject();
+                if (tb.getDays() != null) {
+                    for (java.util.Map.Entry<String, Boolean> e : tb.getDays().entrySet()) {
+                        daysObj.put(e.getKey(), e.getValue());
+                    }
+                }
+                obj.put("days", daysObj);
+                arr.put(obj);
+            }
+            prefs.edit().putString("timer_blocks", arr.toString()).apply();
+        } catch (Exception e) { e.printStackTrace(); }
+    }
+
+    private void scheduleAllTimerBlocks() {
+        for (TimerBlock tb : timerBlockList) {
+            TimerBlockScheduler.schedule(this, tb);
+        }
+    }
+
+    private void showTimerBlocksDialog() {
+        loadTimerBlocks();
+        String[] items = new String[timerBlockList.size() + 1];
+        for (int i = 0; i < timerBlockList.size(); i++) {
+            TimerBlock tb = timerBlockList.get(i);
+            items[i] = "⏱️ " + tb.getName() + " | " + tb.getStartTime() + " - " + tb.getEndTime();
+        }
+        items[timerBlockList.size()] = "➕ Добавить таймер-блокировку";
+
+        new AlertDialog.Builder(this)
+                .setTitle("Таймер-блокировки (расписание)")
+                .setItems(items, (dialog, which) -> {
+                    if (which == timerBlockList.size()) {
+                        showAddTimerBlockDialog(-1);
+                    } else {
+                        // options for existing timer block
+                        int pos = which;
+                        new AlertDialog.Builder(this)
+                                .setItems(new String[]{"Редактировать","Удалить","Отмена"}, (d2, idx) -> {
+                                    if (idx == 0) showAddTimerBlockDialog(pos);
+                                    else if (idx == 1) {
+                                        TimerBlock removed = timerBlockList.remove(pos);
+                                        TimerBlockScheduler.cancel(this, removed);
+                                        saveTimerBlocks();
+                                        Toast.makeText(this, "Таймер-блокировка удалена", Toast.LENGTH_SHORT).show();
+                                    }
+                                }).show();
+                    }
+                })
+                .setNegativeButton("Закрыть", null)
+                .show();
+    }
+
+    private void showAddTimerBlockDialog(int position) {
+        boolean editing = position >= 0;
+        TimerBlock existing = editing ? timerBlockList.get(position) : null;
+
+        View view = getLayoutInflater().inflate(R.layout.dialog_add_timer_block, null);
+        EditText etTimerBlockName = view.findViewById(R.id.etTimerBlockName);
+        Button btnStart = view.findViewById(R.id.btnSelectStartTime);
+        Button btnEnd = view.findViewById(R.id.btnSelectEndTime);
+        CheckBox chkMon = view.findViewById(R.id.chkMon);
+        CheckBox chkTue = view.findViewById(R.id.chkTue);
+        CheckBox chkWed = view.findViewById(R.id.chkWed);
+        CheckBox chkThu = view.findViewById(R.id.chkThu);
+        CheckBox chkFri = view.findViewById(R.id.chkFri);
+        CheckBox chkSat = view.findViewById(R.id.chkSat);
+        CheckBox chkSun = view.findViewById(R.id.chkSun);
+
+        int[] startHour = {9};
+        int[] startMinute = {0};
+        int[] endHour = {17};
+        int[] endMinute = {0};
+
+        if (existing != null) {
+            etTimerBlockName.setText(existing.getName());
+            int[] startParts = TimeUtils.parseTimeParts(existing.getStartTime(), 9, 0);
+            startHour[0] = startParts[0];
+            startMinute[0] = startParts[1];
+            int[] endParts = TimeUtils.parseTimeParts(existing.getEndTime(), 17, 0);
+            endHour[0] = endParts[0];
+            endMinute[0] = endParts[1];
+            setDayChecks(existing.getDays(), chkMon, chkTue, chkWed, chkThu, chkFri, chkSat, chkSun);
+        }
+
+        btnStart.setText(String.format(Locale.getDefault(), "%02d:%02d", startHour[0], startMinute[0]));
+        btnEnd.setText(String.format(Locale.getDefault(), "%02d:%02d", endHour[0], endMinute[0]));
+
+        btnStart.setOnClickListener(v -> new TimePickerDialog(this,
+                (view1, hourOfDay, minuteOfHour) -> {
+                    startHour[0] = hourOfDay; startMinute[0] = minuteOfHour;
+                    btnStart.setText(String.format(Locale.getDefault(), "%02d:%02d", startHour[0], startMinute[0]));
+                }, startHour[0], startMinute[0], true).show());
+
+        btnEnd.setOnClickListener(v -> new TimePickerDialog(this,
+                (view12, hourOfDay, minuteOfHour) -> {
+                    endHour[0] = hourOfDay; endMinute[0] = minuteOfHour;
+                    btnEnd.setText(String.format(Locale.getDefault(), "%02d:%02d", endHour[0], endMinute[0]));
+                }, endHour[0], endMinute[0], true).show());
+
+        new AlertDialog.Builder(this)
+                .setTitle(editing ? "Изменить таймер-блокировку" : "Новая таймер-блокировка")
+                .setView(view)
+                .setPositiveButton("Сохранить", (dialog, which) -> {
+                    String name = etTimerBlockName.getText().toString().trim();
+                    if (name.isEmpty()) {
+                        name = "Таймер-блокировка";
+                    }
+                    String start = String.format(Locale.getDefault(), "%02d:%02d", startHour[0], startMinute[0]);
+                    String end = String.format(Locale.getDefault(), "%02d:%02d", endHour[0], endMinute[0]);
+                    java.util.Map<String, Boolean> days = collectDays(chkMon, chkTue, chkWed, chkThu, chkFri, chkSat, chkSun);
+                    TimerBlock tb = new TimerBlock(name, start, end, days);
+                    if (editing) {
+                        TimerBlock old = timerBlockList.get(position);
+                        TimerBlockScheduler.cancel(this, old);
+                        timerBlockList.set(position, tb);
+                    } else {
+                        timerBlockList.add(tb);
+                    }
+                    saveTimerBlocks();
+                    TimerBlockScheduler.schedule(this, tb);
+                    Toast.makeText(this, "Таймер-блокировка сохранена", Toast.LENGTH_SHORT).show();
+                })
+                .setNegativeButton("Отмена", null)
+                .show();
+    }
+
     private void startTimerLock(String name, int minutes) {
         Intent intent = new Intent(this, TimerLockService.class);
         intent.putExtra("lock_name", name);
@@ -1206,16 +1469,16 @@ public class MainActivity extends AppCompatActivity {
                 syncManager = new SyncManager(this);
             }
 
-            // Сначала экспортируем текущие данные
-            boolean exported = syncManager.exportToSyncFile();
-
-            // Затем импортируем обновления с desktop
             boolean imported = syncManager.importFromSyncFile();
-
-            if (exported && imported) {
+            if (imported) {
                 loadHabits();
                 scheduleAllHabits();
                 refreshHabits();
+            }
+
+            boolean exported = syncManager.exportToSyncFile();
+
+            if (exported && imported) {
                 Toast.makeText(this, "Синхронизация завершена!\nФайл: " + syncManager.getSyncFilePath(), Toast.LENGTH_LONG).show();
             } else if (exported) {
                 Toast.makeText(this, "Данные экспортированы в:\n" + syncManager.getSyncFilePath(), Toast.LENGTH_LONG).show();
